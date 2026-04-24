@@ -216,17 +216,47 @@ class SettingsPanel(QScrollArea):
             QLineEdit::placeholder, QTextEdit::placeholder {
                 color: #94A3B8;
             }
+            QComboBox:hover {
+                border: 1px solid #93C5FD;
+                background-color: #FFFFFF;
+            }
             QComboBox::drop-down {
                 border: none;
-                width: 24px;
+                width: 28px;
+            }
+            QComboBox::down-arrow {
+                width: 8px;
+                height: 8px;
+                border-left: 2px solid #64748B;
+                border-bottom: 2px solid #64748B;
+                transform: rotate(-45deg);
+                margin-top: -2px;
+            }
+            QComboBox::down-arrow:hover {
+                border-left: 2px solid #2563EB;
+                border-bottom: 2px solid #2563EB;
             }
             QComboBox QAbstractItemView {
                 background-color: #FFFFFF;
                 color: #1E293B;
                 border: 1px solid #E2E8F0;
-                selection-background-color: #2563EB;
-                selection-color: #FFFFFF;
-                border-radius: 6px;
+                selection-background-color: #EFF6FF;
+                selection-color: #2563EB;
+                border-radius: 8px;
+                padding: 6px 0px;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 16px;
+                min-height: 20px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #EFF6FF;
+                color: #2563EB;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #DBEAFE;
+                color: #1E40AF;
             }
             QPushButton {
                 background-color: #EFF6FF;
