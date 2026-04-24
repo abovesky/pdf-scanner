@@ -225,16 +225,14 @@ class SettingsPanel(QScrollArea):
                 width: 28px;
             }
             QComboBox::down-arrow {
-                width: 8px;
-                height: 8px;
-                border-left: 2px solid #64748B;
-                border-bottom: 2px solid #64748B;
-                transform: rotate(-45deg);
-                margin-top: -2px;
+                width: 0px;
+                height: 0px;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid #64748B;
             }
             QComboBox::down-arrow:hover {
-                border-left: 2px solid #2563EB;
-                border-bottom: 2px solid #2563EB;
+                border-top: 5px solid #2563EB;
             }
             QComboBox QAbstractItemView {
                 background-color: #FFFFFF;
