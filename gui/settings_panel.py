@@ -276,12 +276,14 @@ class SettingsPanel(QScrollArea):
         return group
 
     def _browse_source(self):
-        path = QFileDialog.getExistingDirectory(self, "选择源目录", str(self.config.source_dir))
+        default_dir = str(self.config.source_dir) if self.config.source_dir.exists() else ""
+        path = QFileDialog.getExistingDirectory(self.window(), "选择源目录", default_dir)
         if path:
             self.source_edit.setText(path)
 
     def _browse_backup(self):
-        path = QFileDialog.getExistingDirectory(self, "选择备份目录")
+        default_dir = str(self.config.backup_dir) if self.config.backup_dir and self.config.backup_dir.exists() else ""
+        path = QFileDialog.getExistingDirectory(self.window(), "选择备份目录", default_dir)
         if path:
             self.backup_edit.setText(path)
 
