@@ -251,7 +251,7 @@ def main():
         print("配置错误:")
         for e in errors:
             print(f"  - {e}")
-        sys.exit(1)
+        return
 
     # 打印当前配置摘要
     print(f"\n{'─' * 50}")
@@ -304,4 +304,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"\n  程序出错: {e}")
+    finally:
+        # 双击 exe 时防止窗口闪退
+        if getattr(sys, "frozen", False):
+            print()
+            input("按回车键退出...")
