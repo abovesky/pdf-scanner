@@ -7,6 +7,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import threading
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -62,7 +63,11 @@ class LocalOCREngine(OCREngine):
 
 
 class BaiduOCREngine(OCREngine):
-    """百度 OCR"""
+    """百度 OCR — 带 QPS 速率控制与自动重试"""
+
+    _last_request_time: float = 0.0
+    _min_interval: float = 0.6
+    _lock = threading.Lock()
 
     def __init__(self, config: OCRConfig, accuracy: str = "general_basic", case_sensitive: bool = False):
         from aip import AipOcr
@@ -76,13 +81,34 @@ class BaiduOCREngine(OCREngine):
             "general": "general",
         }
 
+    def _rate_limit(self) -> None:
+        """类级别速率限制，确保全局请求间隔不小于 _min_interval 秒"""
+        with BaiduOCREngine._lock:
+            now = time.time()
+            elapsed = now - BaiduOCREngine._last_request_time
+            if elapsed < BaiduOCREngine._min_interval:
+                time.sleep(BaiduOCREngine._min_interval - elapsed)
+            BaiduOCREngine._last_request_time = time.time()
+
     def recognize(self, image) -> str:
         try:
             image_bytes = self._image_to_bytes(image)
             method_name = self._method_map.get(self.accuracy, "general")
             method = getattr(self.client, method_name)
+
+            self._rate_limit()
             res = method(image_bytes)
-            time.sleep(0.5)
+
+            # QPS 限制错误自动重试（最多 2 次，指数退避）
+            retry_count = 0
+            max_retries = 2
+            while res.get("error_code") == 18 and retry_count < max_retries:
+                retry_count += 1
+                wait = 0.8 * retry_count
+                logger.warning(f"百度OCR QPS超限，{wait}s 后第 {retry_count} 次重试...")
+                time.sleep(wait)
+                self._rate_limit()
+                res = method(image_bytes)
 
             if "error_code" in res:
                 logger.error(f"百度OCR返回错误: {res}")
