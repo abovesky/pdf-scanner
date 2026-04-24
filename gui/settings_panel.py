@@ -349,8 +349,7 @@ class SettingsPanel(QScrollArea):
 
     def set_readonly(self, readonly: bool):
         """设置所有控件只读状态"""
-        for widget in self.findChildren((QLineEdit, QTextEdit, QComboBox, QSpinBox, QCheckBox, QPushButton)):
-            if isinstance(widget, QPushButton):
-                widget.setEnabled(not readonly)
-            else:
+        target_types = (QLineEdit, QTextEdit, QComboBox, QSpinBox, QCheckBox, QPushButton)
+        for widget in self.findChildren(QWidget):
+            if isinstance(widget, target_types):
                 widget.setEnabled(not readonly)
