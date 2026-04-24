@@ -15,40 +15,69 @@ from core.scanner import PDFScanner
 STATUS_LABELS = {
     FileStatus.MODIFIED:   "已修改",
     FileStatus.UNMODIFIED: "未修改",
-    FileStatus.FAILED:     "失败  ",
+    FileStatus.FAILED:     "失败",
     FileStatus.SKIPPED:    "已跳过",
 }
 
+# 扫描过程中由 result_callback 实时打印，无需独立进度条
+_completed = 0
+_total = 0
+_print_lock = threading.Lock()
+
 
 def _log_handler(level: str, msg: str):
-    """scanner 回调 → 终端输出"""
-    print(f"  {msg}")
+    """scanner 回调 → 仅输出 error，其余由 result 回调驱动"""
+    if level == "error":
+        print(f"  [错误] {msg}")
 
 
-def _progress_handler(current: int, total: int):
-    """进度回调 → 简洁进度行"""
-    pct = int(current / total * 100) if total > 0 else 0
-    bar_len = 30
-    filled = int(bar_len * current / total) if total > 0 else 0
-    bar = "#" * filled + "-" * (bar_len - filled)
-    sys.stdout.write(f"\r  进度: [{bar}] {pct}% ({current}/{total})")
-    sys.stdout.flush()
-    if current == total:
-        print()  # 换行
+def _result_handler(result: ScanResult):
+    """单文件完成 → 实时打印一行紧凑结果"""
+    global _completed
+    with _print_lock:
+        _completed += 1
+        status = STATUS_LABELS.get(result.status, str(result.status))
+        parts = [f"[{_completed}/{_total}]", result.file_name, status]
+        if result.copyright_pages:
+            parts.append(f"版权页:{result.copyright_pages}")
+        if result.blank_pages_removed:
+            parts.append(f"删空白页:{result.blank_pages_removed}")
+        if result.elapsed_seconds:
+            parts.append(f"{result.elapsed_seconds}s")
+        if result.status == FileStatus.FAILED and result.message:
+            parts.append(result.message)
+        print("  " + " | ".join(parts))
 
 
 # ── 结果展示 ──────────────────────────────────────────────
+
+def _display_width(s: str) -> int:
+    """计算字符串在终端的显示宽度（CJK 字符占 2 列）"""
+    import unicodedata
+    return sum(2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s)
+
+
+def _pad(s: str, width: int) -> str:
+    """按显示宽度右填充空格"""
+    return s + " " * (width - _display_width(s))
+
 
 def print_results(results: list[ScanResult]):
     """打印扫描结果表格"""
     if not results:
         return
 
+    # 列宽定义（按显示列数）
+    COL_NAME, COL_STATUS, COL_CP, COL_BP, COL_TP, COL_ET = 30, 10, 10, 8, 8, 8
+
+    def row(*cols_with_width):
+        return "  " + " ".join(_pad(s, w) for s, w in cols_with_width)
+
     print(f"\n{'=' * 80}")
     print("  扫描结果")
     print(f"{'=' * 80}")
-    print(f"  {'文件名':<30} {'状态':<10} {'版权页':<10} {'空白页':<8} {'总页数':<8} {'耗时':<8}")
-    print(f"  {'-' * 30} {'-' * 10} {'-' * 10} {'-' * 8} {'-' * 8} {'-' * 8}")
+    print(row(("文件名", COL_NAME), ("状态", COL_STATUS), ("版权页", COL_CP), ("空白页", COL_BP), ("总页数", COL_TP), ("耗时", COL_ET)))
+    print(row(("-" * COL_NAME, COL_NAME), ("-" * COL_STATUS, COL_STATUS), ("-" * COL_CP, COL_CP), ("-" * COL_BP, COL_BP), ("-" * COL_TP, COL_TP), ("-" * COL_ET, COL_ET)))
 
     for r in results:
         status_str = STATUS_LABELS.get(r.status, str(r.status))
@@ -57,7 +86,7 @@ def print_results(results: list[ScanResult]):
         tp = str(r.total_pages) if r.total_pages else "-"
         et = f"{r.elapsed_seconds}s" if r.elapsed_seconds else "-"
         name = r.file_name[:28] + ".." if len(r.file_name) > 30 else r.file_name
-        print(f"  {name:<30} {status_str:<10} {cp:<10} {bp:<8} {tp:<8} {et:<8}")
+        print(row((name, COL_NAME), (status_str, COL_STATUS), (cp, COL_CP), (bp, COL_BP), (tp, COL_TP), (et, COL_ET)))
 
     # 统计
     modified = sum(1 for r in results if r.status == FileStatus.MODIFIED)
@@ -236,10 +265,19 @@ def main():
         cancel_event=cancel_event,
     )
     scanner.log_callback = _log_handler
-    scanner.progress_callback = _progress_handler
+    scanner.result_callback = _result_handler
+
+    # 初始化计数
+    global _completed, _total
+    _completed = 0
+    _total = len(scanner.get_pdf_files())
+
+    if _total == 0:
+        print("  没有发现新的未处理 PDF 文件。\n")
+        return
 
     # 执行扫描
-    print("  开始扫描...\n")
+    print(f"  开始扫描 {_total} 个文件...\n")
     results = scanner.run()
 
     # 展示结果
