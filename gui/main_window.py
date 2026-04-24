@@ -191,8 +191,8 @@ class MainWindow(QMainWindow):
             QMainWindow {
                 background-color: #F1F5F9;
             }
-            QWidget {
-                background-color: #F1F5F9;
+            QLabel {
+                background: transparent;
             }
             #sidebar {
                 background-color: #FFFFFF;
