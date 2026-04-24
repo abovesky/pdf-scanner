@@ -1,6 +1,6 @@
 """
-扫描结果列表组件
-QTableView + 自定义模型
+扫描结果列表组件 — 浅色现代风格
+现代化表格样式，交替行，清晰的状态颜色
 """
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
@@ -15,10 +15,10 @@ class ResultTableModel(QAbstractTableModel):
     HEADERS = ["文件名", "状态", "版权页", "空白页", "总页数", "耗时", "详情"]
 
     STATUS_COLORS = {
-        FileStatus.MODIFIED: QColor("#10B981"),
-        FileStatus.UNMODIFIED: QColor("#94A3B8"),
-        FileStatus.FAILED: QColor("#EF4444"),
-        FileStatus.SKIPPED: QColor("#F59E0B"),
+        FileStatus.MODIFIED: QColor("#15803D"),   # green-700
+        FileStatus.UNMODIFIED: QColor("#64748B"), # slate-500
+        FileStatus.FAILED: QColor("#DC2626"),     # red-600
+        FileStatus.SKIPPED: QColor("#B45309"),    # amber-700
     }
 
     STATUS_LABELS = {
@@ -77,7 +77,7 @@ class ResultTableModel(QAbstractTableModel):
                 return result.message
 
         if role == Qt.ForegroundRole and col == 1:
-            return self.STATUS_COLORS.get(result.status, QColor("#F1F5F9"))
+            return self.STATUS_COLORS.get(result.status, QColor("#1E293B"))
 
         if role == Qt.TextAlignmentRole:
             if col in (2, 3, 4, 5):
@@ -88,7 +88,7 @@ class ResultTableModel(QAbstractTableModel):
 
 
 class ResultTable(QWidget):
-    """扫描结果列表组件"""
+    """扫描结果列表组件 — 浅色现代风格"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -97,6 +97,7 @@ class ResultTable(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         self.table_view = QTableView(self)
         self.model = ResultTableModel(self)
@@ -104,33 +105,50 @@ class ResultTable(QWidget):
 
         self.table_view.setStyleSheet("""
             QTableView {
-                background-color: #1E293B;
-                color: #F1F5F9;
-                border: 1px solid #334155;
-                border-radius: 6px;
-                gridline-color: #334155;
+                background-color: #FFFFFF;
+                color: #1E293B;
+                border: none;
+                border-radius: 8px;
+                gridline-color: #F1F5F9;
+                outline: none;
             }
             QTableView::item {
-                padding: 6px;
-                border-bottom: 1px solid #334155;
+                padding: 8px 10px;
+                border-bottom: 1px solid #F1F5F9;
             }
             QTableView::item:selected {
-                background-color: #2563EB;
+                background-color: #DBEAFE;
+                color: #1E293B;
+            }
+            QTableView::item:alternate {
+                background-color: #FAFAFA;
             }
             QHeaderView::section {
-                background-color: #334155;
-                color: #F1F5F9;
-                padding: 8px;
+                background-color: #F8FAFC;
+                color: #475569;
+                padding: 10px;
                 border: none;
+                border-bottom: 2px solid #E2E8F0;
                 font-weight: 600;
+                font-size: 12px;
+            }
+            QHeaderView::section:first {
+                border-top-left-radius: 8px;
+            }
+            QHeaderView::section:last {
+                border-top-right-radius: 8px;
             }
         """)
 
         self.table_view.horizontalHeader().setStretchLastSection(True)
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.table_view.horizontalHeader().setDefaultSectionSize(100)
+        self.table_view.horizontalHeader().setMinimumSectionSize(60)
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.setAlternatingRowColors(True)
         self.table_view.setSelectionBehavior(QTableView.SelectRows)
+        self.table_view.setSelectionMode(QTableView.SingleSelection)
+        self.table_view.setShowGrid(False)
 
         layout.addWidget(self.table_view)
 

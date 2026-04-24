@@ -1,6 +1,6 @@
 """
-日志显示组件
-带颜色区分的 QTextEdit
+日志显示组件 — 浅色现代风格
+白色背景，适配浅色主题的颜色区分
 """
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
@@ -8,14 +8,14 @@ from PySide6.QtWidgets import QTextEdit, QVBoxLayout, QWidget
 
 
 class LogWidget(QWidget):
-    """实时日志显示组件"""
+    """实时日志显示组件 — 浅色主题"""
 
     COLORS = {
-        "debug": QColor("#94A3B8"),
-        "info": QColor("#F1F5F9"),
-        "warning": QColor("#F59E0B"),
-        "error": QColor("#EF4444"),
-        "success": QColor("#10B981"),
+        "debug": QColor("#64748B"),   # slate-500
+        "info": QColor("#1E293B"),    # slate-800
+        "warning": QColor("#B45309"), # amber-700
+        "error": QColor("#DC2626"),   # red-600
+        "success": QColor("#15803D"), # green-700
     }
 
     def __init__(self, parent=None):
@@ -25,6 +25,7 @@ class LogWidget(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         self.text_edit = QTextEdit(self)
         self.text_edit.setReadOnly(True)
@@ -32,17 +33,19 @@ class LogWidget(QWidget):
         self.text_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.text_edit.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
-        font = QFont("Consolas", 10)
+        font = QFont("JetBrains Mono", 10)
+        if not QFont(font).exactMatch():
+            font = QFont("Consolas", 10)
         font.setStyleHint(QFont.Monospace)
         self.text_edit.setFont(font)
 
         self.text_edit.setStyleSheet("""
             QTextEdit {
-                background-color: #0F172A;
-                color: #F1F5F9;
-                border: 1px solid #334155;
-                border-radius: 6px;
-                padding: 8px;
+                background-color: #F8FAFC;
+                color: #1E293B;
+                border: 1px solid #E2E8F0;
+                border-radius: 8px;
+                padding: 10px;
             }
         """)
 
@@ -59,7 +62,7 @@ class LogWidget(QWidget):
 
         # 时间戳
         fmt_time = QTextCharFormat()
-        fmt_time.setForeground(QColor("#64748B"))
+        fmt_time.setForeground(QColor("#94A3B8"))
         fmt_time.setFont(QFont("Consolas", 9))
         self.text_edit.setCurrentCharFormat(fmt_time)
         self.text_edit.insertPlainText(f"[{timestamp}] ")
