@@ -1,1 +1,0 @@
-"""PDF Scanner GUI Modules"""

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Literal
 
@@ -93,7 +94,7 @@ class AppConfig:
 
     def _get_settings_path(self) -> Path:
         """获取配置文件路径（打包后使用 APPDATA 目录）"""
-        if getattr(sys := __import__("sys"), "frozen", False):
+        if getattr(sys, "frozen", False):
             base_dir = Path(os.getenv("APPDATA", "")) / "PDFScanner"
             base_dir.mkdir(parents=True, exist_ok=True)
             return base_dir / "settings.json"
@@ -101,7 +102,7 @@ class AppConfig:
 
     def get_resume_file_path(self) -> Path:
         """获取进度文件路径"""
-        if getattr(__import__("sys"), "frozen", False):
+        if getattr(sys, "frozen", False):
             base_dir = Path(os.getenv("APPDATA", "")) / "PDFScanner"
             base_dir.mkdir(parents=True, exist_ok=True)
             return base_dir / "pdf_scan_progress.json"
@@ -187,12 +188,3 @@ class AppConfig:
         if self.recognition_mode not in ("local", "baidu", "volc", "iflytek"):
             errors.append(f"不支持的 OCR 模式: {self.recognition_mode}")
         return errors
-
-    def get_ocr_config(self) -> dict:
-        """获取 OCR 引擎需要的配置字典"""
-        return {
-            "app_id": self.baidu_app_id or self.iflytek_app_id,
-            "api_key": self.baidu_api_key or self.iflytek_api_key,
-            "secret_key": self.baidu_secret_key or self.iflytek_secret_key or self.volc_secret_key,
-            "access_key": self.volc_access_key,
-        }

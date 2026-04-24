@@ -249,10 +249,5 @@ class OCREngineFactory:
             return engine_class(config, case_sensitive=kwargs.get("case_sensitive", False))
 
     @classmethod
-    def register(cls, name: str, engine_class: type[OCREngine]) -> None:
-        """注册新的 OCR 引擎"""
-        cls._engines[name] = engine_class
-
-    @classmethod
     def available_modes(cls) -> list[str]:
         return list(cls._engines.keys())

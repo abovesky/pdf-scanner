@@ -77,9 +77,6 @@ def parse_pages_to_check(pages_str: str, total_pages: int) -> list[int]:
 class PDFEngine:
     """基于 PyMuPDF 的 PDF 操作引擎"""
 
-    def __init__(self):
-        pass
-
     def get_page_count(self, pdf_path: Path) -> int:
         """获取 PDF 总页数"""
         import fitz
