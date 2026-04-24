@@ -1,21 +1,22 @@
 """
-日志显示组件 — 浅色现代风格
-白色背景，适配浅色主题的颜色区分
+日志显示组件 — 简洁浅色风格
 """
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QTextCharFormat, QTextCursor
-from PySide6.QtWidgets import QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QTextEdit, QVBoxLayou, QWidget
+
+from .theme import STATUS_GREEN, STATUS_RED, STATUS_YELLOW, log_style
 
 
 class LogWidget(QWidget):
-    """实时日志显示组件 — 浅色主题"""
+    """实时日志显示组件"""
 
     COLORS = {
-        "debug": QColor("#64748B"),   # slate-500
-        "info": QColor("#1E293B"),    # slate-800
-        "warning": QColor("#B45309"), # amber-700
-        "error": QColor("#DC2626"),   # red-600
-        "success": QColor("#15803D"), # green-700
+        "debug": QColor("#6B7280"),
+        "info": QColor("#111827"),
+        "warning": QColor(STATUS_YELLOW),
+        "error": QColor(STATUS_RED),
+        "success": QColor(STATUS_GREEN),
     }
 
     def __init__(self, parent=None):
@@ -23,7 +24,7 @@ class LogWidget(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
+        layout = QVBoxLayou(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
@@ -38,52 +39,37 @@ class LogWidget(QWidget):
             font = QFont("Consolas", 10)
         font.setStyleHint(QFont.Monospace)
         self.text_edit.setFont(font)
-
-        self.text_edit.setStyleSheet("""
-            QTextEdit {
-                background-color: #F8FAFC;
-                color: #1E293B;
-                border: 1px solid #E2E8F0;
-                border-radius: 8px;
-                padding: 10px;
-            }
-        """)
+        self.text_edit.setStyleSheet(log_style())
 
         layout.addWidget(self.text_edit)
 
     def append_log(self, level: str, message: str):
-        """追加一条日志"""
         from datetime import datetime
-
-        timestamp = datetime.now().strftime("%H:%M:%S")
+        ts = datetime.now().strftime("%H:%M:%S")
         color = self.COLORS.get(level, self.COLORS["info"])
 
         self.text_edit.moveCursor(QTextCursor.End)
 
-        # 时间戳
-        fmt_time = QTextCharFormat()
-        fmt_time.setForeground(QColor("#94A3B8"))
-        fmt_time.setFont(QFont("Consolas", 9))
-        self.text_edit.setCurrentCharFormat(fmt_time)
-        self.text_edit.insertPlainText(f"[{timestamp}] ")
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor("#9CA3AF"))
+        fmt.setFont(QFont("Consolas", 9))
+        self.text_edit.setCurrentCharFormat(fmt)
+        self.text_edit.insertPlainText(f"[{ts}] ")
 
-        # 级别标签
-        fmt_level = QTextCharFormat()
-        fmt_level.setForeground(color)
-        fmt_level.setFontWeight(QFont.Bold)
-        fmt_level.setFont(QFont("Consolas", 9))
-        self.text_edit.setCurrentCharFormat(fmt_level)
+        fmt = QTextCharFormat()
+        fmt.setForeground(color)
+        fmt.setFontWeight(QFont.Bold)
+        fmt.setFont(QFont("Consolas", 9))
+        self.text_edit.setCurrentCharFormat(fmt)
         self.text_edit.insertPlainText(f"[{level.upper()}] ")
 
-        # 消息内容
-        fmt_msg = QTextCharFormat()
-        fmt_msg.setForeground(color)
-        fmt_msg.setFont(QFont("Consolas", 10))
-        self.text_edit.setCurrentCharFormat(fmt_msg)
+        fmt = QTextCharFormat()
+        fmt.setForeground(color)
+        fmt.setFont(QFont("Consolas", 10))
+        self.text_edit.setCurrentCharFormat(fmt)
         self.text_edit.insertPlainText(message + "\n")
 
         self.text_edit.moveCursor(QTextCursor.End)
 
     def clear_log(self):
-        """清空日志"""
         self.text_edit.clear()

@@ -1,6 +1,5 @@
 """
-设置面板组件 — 浅色现代风格
-左侧边栏卡片式布局
+设置面板组件 — 简洁浅色风格
 """
 from pathlib import Path
 
@@ -24,6 +23,15 @@ from PySide6.QtWidgets import (
 
 from core.config import AppConfig
 from core.ocr_engines import OCREngineFactory
+from .theme import (
+    TEXT_PRIMARY,
+    checkbox_style,
+    combobox_style,
+    group_style,
+    input_style,
+    secondary_button_style,
+    spinbox_style,
+)
 
 
 class SettingsPanel(QScrollArea):
@@ -40,9 +48,10 @@ class SettingsPanel(QScrollArea):
 
     def _setup_ui(self):
         container = QWidget()
+        container.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(container)
-        layout.setSpacing(14)
-        layout.setContentsMargins(0, 0, 8, 0)
+        layout.setSpacing(12)
+        layout.setContentsMargins(0, 0, 4, 0)
 
         # 目录设置组
         dir_group = self._create_group("目录设置")
@@ -52,11 +61,10 @@ class SettingsPanel(QScrollArea):
 
         self.source_edit = QLineEdit()
         self.source_edit.setPlaceholderText("选择包含 PDF 的文件夹")
-        self.source_edit.setMinimumHeight(26)
         self.source_btn = QPushButton("浏览")
         self.source_btn.setFixedWidth(56)
-        self.source_btn.setMinimumHeight(26)
         self.source_btn.setCursor(Qt.PointingHandCursor)
+        self.source_btn.setStyleSheet(secondary_button_style())
         self.source_btn.clicked.connect(self._browse_source)
 
         source_row = QHBoxLayout()
@@ -66,11 +74,10 @@ class SettingsPanel(QScrollArea):
 
         self.backup_edit = QLineEdit()
         self.backup_edit.setPlaceholderText("可选，留空则自动备份")
-        self.backup_edit.setMinimumHeight(26)
         self.backup_btn = QPushButton("浏览")
         self.backup_btn.setFixedWidth(56)
-        self.backup_btn.setMinimumHeight(26)
         self.backup_btn.setCursor(Qt.PointingHandCursor)
+        self.backup_btn.setStyleSheet(secondary_button_style())
         self.backup_btn.clicked.connect(self._browse_backup)
 
         backup_row = QHBoxLayout()
@@ -78,14 +85,13 @@ class SettingsPanel(QScrollArea):
         backup_row.addWidget(self.backup_edit, 1)
         backup_row.addWidget(self.backup_btn)
 
-        dir_layout.addWidget(QLabel("源目录"))
+        for label_text in ["源目录", "备份目录"]:
+            dir_layout.addWidget(QLabel(label_text, styleSheet=f"color: {TEXT_PRIMARY};"))
         dir_layout.addLayout(source_row)
-        dir_layout.addWidget(QLabel("备份目录"))
         dir_layout.addLayout(backup_row)
-
         layout.addWidget(dir_group)
 
-        # 扫描与识别组（合并扫描参数 + OCR 设置）
+        # 扫描与识别组
         scan_group = self._create_group("扫描与识别")
         scan_layout = QGridLayout(scan_group)
         scan_layout.setSpacing(8)
@@ -125,29 +131,30 @@ class SettingsPanel(QScrollArea):
 
         self.lang_edit = QLineEdit("chi_sim")
 
-        # Row 0: 关键词（占整行）
-        scan_layout.addWidget(QLabel("关键词"), 0, 0, Qt.AlignTop)
-        scan_layout.addWidget(self.keywords_edit, 0, 1, 1, 3)
-        # Row 1: 检查页面 | 搜索逻辑 | DPI
-        scan_layout.addWidget(QLabel("检查页面"), 1, 0)
-        scan_layout.addWidget(self.pages_edit, 1, 1)
-        scan_layout.addWidget(QLabel("搜索逻辑"), 1, 2)
-        scan_layout.addWidget(self.logic_combo, 1, 3)
-        # Row 2: DPI | 文件并发 | OCR并发
-        scan_layout.addWidget(QLabel("DPI"), 2, 0)
-        scan_layout.addWidget(self.dpi_spin, 2, 1)
-        scan_layout.addWidget(QLabel("文件并发"), 2, 2)
-        scan_layout.addWidget(self.max_workers_spin, 2, 3)
-        # Row 3: OCR并发 | OCR模式 | 识别精度
-        scan_layout.addWidget(QLabel("OCR并发"), 3, 0)
-        scan_layout.addWidget(self.ocr_workers_spin, 3, 1)
-        scan_layout.addWidget(QLabel("OCR模式"), 3, 2)
-        scan_layout.addWidget(self.ocr_mode_combo, 3, 3)
-        # Row 4: 识别精度 | 语言
-        scan_layout.addWidget(QLabel("识别精度"), 4, 0)
-        scan_layout.addWidget(self.accuracy_combo, 4, 1)
-        scan_layout.addWidget(QLabel("语言"), 4, 2)
-        scan_layout.addWidget(self.lang_edit, 4, 3)
+        labels = ["关键词", "检查页面", "搜索逻辑", "DPI",
+                  "文件并发", "OCR并发", "OCR模式", "识别精度", "语言"]
+        widgets = [
+            (0, 0, 1, 3, QLabel(labels[0])),
+            (0, 1, 1, 3, self.keywords_edit),
+            (1, 0, 1, 1, QLabel(labels[1])),
+            (1, 1, 1, 1, self.pages_edit),
+            (1, 2, 1, 1, QLabel(labels[2])),
+            (1, 3, 1, 1, self.logic_combo),
+            (2, 0, 1, 1, QLabel(labels[3])),
+            (2, 1, 1, 1, self.dpi_spin),
+            (2, 2, 1, 1, QLabel(labels[4])),
+            (2, 3, 1, 1, self.max_workers_spin),
+            (3, 0, 1, 1, QLabel(labels[5])),
+            (3, 1, 1, 1, self.ocr_workers_spin),
+            (3, 2, 1, 1, QLabel(labels[6])),
+            (3, 3, 1, 1, self.ocr_mode_combo),
+            (4, 0, 1, 1, QLabel(labels[7])),
+            (4, 1, 1, 1, self.accuracy_combo),
+            (4, 2, 1, 1, QLabel(labels[8])),
+            (4, 3, 1, 1, self.lang_edit),
+        ]
+        for row, col, r_span, c_span, widget in widgets:
+            scan_layout.addWidget(widget, row, col, r_span, c_span)
 
         layout.addWidget(scan_group)
 
@@ -160,166 +167,57 @@ class SettingsPanel(QScrollArea):
         options_layout.setColumnStretch(1, 1)
         options_layout.setColumnStretch(2, 1)
 
-        self.remove_copyright_cb = QCheckBox("删除版权页")
-        self.remove_copyright_cb.setChecked(True)
-        self.remove_blank_cb = QCheckBox("删除空白页")
-        self.remove_blank_cb.setChecked(True)
+        self.remove_copyright_cb = QCheckBox("删除版权页", checked=True)
+        self.remove_blank_cb = QCheckBox("删除空白页", checked=True)
         self.case_sensitive_cb = QCheckBox("区分大小写")
-        self.filter_spaces_cb = QCheckBox("过滤空格")
-        self.filter_spaces_cb.setChecked(True)
-        self.fuzzy_match_cb = QCheckBox("模糊匹配")
-        self.fuzzy_match_cb.setChecked(True)
+        self.filter_spaces_cb = QCheckBox("过滤空格", checked=True)
+        self.fuzzy_match_cb = QCheckBox("模糊匹配", checked=True)
         self.debug_cb = QCheckBox("调试模式")
 
-        options_layout.addWidget(self.remove_copyright_cb, 0, 0)
-        options_layout.addWidget(self.remove_blank_cb, 0, 1)
-        options_layout.addWidget(self.case_sensitive_cb, 0, 2)
-        options_layout.addWidget(self.filter_spaces_cb, 1, 0)
-        options_layout.addWidget(self.fuzzy_match_cb, 1, 1)
-        options_layout.addWidget(self.debug_cb, 1, 2)
+        checkboxes = [
+            (0, 0, self.remove_copyright_cb),
+            (0, 1, self.remove_blank_cb),
+            (0, 2, self.case_sensitive_cb),
+            (1, 0, self.filter_spaces_cb),
+            (1, 1, self.fuzzy_match_cb),
+            (1, 2, self.debug_cb),
+        ]
+        for row, col, cb in checkboxes:
+            options_layout.addWidget(cb, row, col)
 
         layout.addWidget(options_group)
         layout.addStretch()
 
-        container.setMinimumWidth(320)
         self.setWidget(container)
 
-        # 全局样式
-        self.setStyleSheet("""
-            QScrollArea {
-                background: transparent;
-            }
-            QLabel {
-                color: #334155;
-                font-size: 12px;
-            }
-            QLineEdit, QComboBox, QSpinBox, QTextEdit {
-                background-color: #F8FAFC;
-                color: #1E293B;
-                border: 1px solid #E2E8F0;
-                border-radius: 6px;
-                padding: 5px 8px;
-                font-size: 12px;
-            }
-            QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QTextEdit:focus {
-                border: 1px solid #2563EB;
-            }
-            QLineEdit::placeholder, QTextEdit::placeholder {
-                color: #94A3B8;
-            }
-            QComboBox:hover {
-                border: 1px solid #93C5FD;
-                background-color: #FFFFFF;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 28px;
-            }
-            QComboBox::down-arrow {
-                width: 0px;
-                height: 0px;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid #64748B;
-            }
-            QComboBox::down-arrow:hover {
-                border-top: 5px solid #2563EB;
-            }
-            QComboBox QAbstractItemView {
-                background-color: #FFFFFF;
-                color: #1E293B;
-                border: 1px solid #E2E8F0;
-                selection-background-color: #EFF6FF;
-                selection-color: #2563EB;
-                border-radius: 8px;
-                padding: 6px 0px;
-                outline: none;
-            }
-            QComboBox QAbstractItemView::item {
-                padding: 8px 16px;
-                min-height: 20px;
-            }
-            QComboBox QAbstractItemView::item:hover {
-                background-color: #EFF6FF;
-                color: #2563EB;
-            }
-            QComboBox QAbstractItemView::item:selected {
-                background-color: #DBEAFE;
-                color: #1E40AF;
-            }
-            QPushButton {
-                background-color: #EFF6FF;
-                color: #2563EB;
-                border: 1px solid #BFDBFE;
-                border-radius: 6px;
-                padding: 4px 10px;
-                font-size: 12px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #DBEAFE;
-            }
-            QPushButton:pressed {
-                background-color: #BFDBFE;
-            }
-            QCheckBox {
-                color: #334155;
-                font-size: 12px;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-                border-radius: 4px;
-                border: 1px solid #CBD5E1;
-                background-color: #FFFFFF;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #2563EB;
-                border: 1px solid #2563EB;
-            }
-            QSpinBox::up-button, QSpinBox::down-button {
-                width: 18px;
-                border-radius: 3px;
-            }
-        """)
+        # 统一应用样式
+        self.setStyleSheet(
+            f'QLabel {{ color: {TEXT_PRIMARY}; font-size: 13px; }}'
+            + input_style()
+            + combobox_style()
+            + spinbox_style()
+            + checkbox_style()
+            + secondary_button_style()
+        )
 
     def _create_group(self, title: str) -> QGroupBox:
-        """创建现代化分组卡片"""
         group = QGroupBox(title)
-        group.setStyleSheet("""
-            QGroupBox {
-                color: #1E293B;
-                font-weight: 600;
-                font-size: 13px;
-                border: 1px solid #E2E8F0;
-                border-radius: 10px;
-                margin-top: 10px;
-                padding-top: 6px;
-                background-color: #FFFFFF;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 12px;
-                padding: 0 6px;
-                color: #1E293B;
-            }
-        """)
+        group.setStyleSheet(group_style())
         return group
 
     def _browse_source(self):
-        default_dir = str(self.config.source_dir) if self.config.source_dir.exists() else ""
-        path = QFileDialog.getExistingDirectory(self.window(), "选择源目录", default_dir)
+        default = str(self.config.source_dir) if self.config.source_dir.exists() else ""
+        path = QFileDialog.getExistingDirectory(self.window(), "选择源目录", default)
         if path:
             self.source_edit.setText(path)
 
     def _browse_backup(self):
-        default_dir = str(self.config.backup_dir) if self.config.backup_dir and self.config.backup_dir.exists() else ""
-        path = QFileDialog.getExistingDirectory(self.window(), "选择备份目录", default_dir)
+        default = str(self.config.backup_dir) if self.config.backup_dir and self.config.backup_dir.exists() else ""
+        path = QFileDialog.getExistingDirectory(self.window(), "选择备份目录", default)
         if path:
             self.backup_edit.setText(path)
 
     def load_from_config(self):
-        """从当前配置加载到 UI"""
         self.source_edit.setText(str(self.config.source_dir))
         if self.config.backup_dir:
             self.backup_edit.setText(str(self.config.backup_dir))
@@ -340,15 +238,12 @@ class SettingsPanel(QScrollArea):
         self.debug_cb.setChecked(self.config.debug_mode)
 
     def save_to_config(self) -> AppConfig:
-        """从 UI 保存到配置对象"""
         config = AppConfig()
         config.source_dir = Path(self.source_edit.text() or ".")
         backup_text = self.backup_edit.text()
         config.backup_dir = Path(backup_text) if backup_text else None
-
         kw_text = self.keywords_edit.toPlainText()
         config.keywords = [k.strip() for k in kw_text.replace(",", "\n").split("\n") if k.strip()]
-
         config.pages_to_check = self.pages_edit.text()
         config.search_logic = self.logic_combo.currentText()
         config.dpi = self.dpi_spin.value()
@@ -363,11 +258,9 @@ class SettingsPanel(QScrollArea):
         config.filter_spaces = self.filter_spaces_cb.isChecked()
         config.fuzzy_match = self.fuzzy_match_cb.isChecked()
         config.debug_mode = self.debug_cb.isChecked()
-
         return config
 
     def set_readonly(self, readonly: bool):
-        """设置所有控件只读状态"""
         target_types = (QLineEdit, QTextEdit, QComboBox, QSpinBox, QCheckBox, QPushButton)
         for widget in self.findChildren(QWidget):
             if isinstance(widget, target_types):

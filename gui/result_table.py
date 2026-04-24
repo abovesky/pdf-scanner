@@ -1,12 +1,18 @@
 """
-扫描结果列表组件 — 浅色现代风格
-现代化表格样式，交替行，清晰的状态颜色
+扫描结果列表组件 — 简洁浅色风格
 """
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QHeaderView, QTableView, QVBoxLayout, QWidget
 
 from core.models import FileStatus, ScanResult
+from .theme import (
+    STATUS_GREEN,
+    STATUS_GRAY,
+    STATUS_RED,
+    STATUS_YELLOW,
+    table_style,
+)
 
 
 class ResultTableModel(QAbstractTableModel):
@@ -15,10 +21,10 @@ class ResultTableModel(QAbstractTableModel):
     HEADERS = ["文件名", "状态", "版权页", "空白页", "总页数", "耗时", "详情"]
 
     STATUS_COLORS = {
-        FileStatus.MODIFIED: QColor("#15803D"),   # green-700
-        FileStatus.UNMODIFIED: QColor("#64748B"), # slate-500
-        FileStatus.FAILED: QColor("#DC2626"),     # red-600
-        FileStatus.SKIPPED: QColor("#B45309"),    # amber-700
+        FileStatus.MODIFIED: QColor(STATUS_GREEN),
+        FileStatus.UNMODIFIED: QColor(STATUS_GRAY),
+        FileStatus.FAILED: QColor(STATUS_RED),
+        FileStatus.SKIPPED: QColor(STATUS_YELLOW),
     }
 
     STATUS_LABELS = {
@@ -30,7 +36,7 @@ class ResultTableModel(QAbstractTableModel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._results: list[ScanResult] = []
+        self._results: "list[ScanResult]" = []
 
     def add_result(self, result: ScanResult):
         self.beginInsertRows(QModelIndex(), len(self._results), len(self._results))
@@ -61,23 +67,18 @@ class ResultTableModel(QAbstractTableModel):
         col = index.column()
 
         if role == Qt.DisplayRole:
-            if col == 0:
-                return result.file_name
-            elif col == 1:
-                return self.STATUS_LABELS.get(result.status, result.status)
-            elif col == 2:
-                return str(result.copyright_pages) if result.copyright_pages else "-"
-            elif col == 3:
-                return str(result.blank_pages_removed) if result.blank_pages_removed else "-"
-            elif col == 4:
-                return str(result.total_pages) if result.total_pages else "-"
-            elif col == 5:
-                return f"{result.elapsed_seconds}s" if result.elapsed_seconds else "-"
-            elif col == 6:
-                return result.message
+            return {
+                0: result.file_name,
+                1: self.STATUS_LABELS.get(result.status, result.status),
+                2: str(result.copyright_pages) if result.copyright_pages else "-",
+                3: str(result.blank_pages_removed) if result.blank_pages_removed else "-",
+                4: str(result.total_pages) if result.total_pages else "-",
+                5: f"{result.elapsed_seconds}s" if result.elapsed_seconds else "-",
+                6: result.message,
+            }.get(col)
 
         if role == Qt.ForegroundRole and col == 1:
-            return self.STATUS_COLORS.get(result.status, QColor("#1E293B"))
+            return self.STATUS_COLORS.get(result.status, QColor("#111827"))
 
         if role == Qt.TextAlignmentRole:
             if col in (2, 3, 4, 5):
@@ -88,7 +89,7 @@ class ResultTableModel(QAbstractTableModel):
 
 
 class ResultTable(QWidget):
-    """扫描结果列表组件 — 浅色现代风格"""
+    """扫描结果列表组件"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -103,43 +104,7 @@ class ResultTable(QWidget):
         self.model = ResultTableModel(self)
         self.table_view.setModel(self.model)
 
-        self.table_view.setStyleSheet("""
-            QTableView {
-                background-color: #FFFFFF;
-                color: #1E293B;
-                border: none;
-                border-radius: 8px;
-                gridline-color: #F1F5F9;
-                outline: none;
-            }
-            QTableView::item {
-                padding: 8px 10px;
-                border-bottom: 1px solid #F1F5F9;
-            }
-            QTableView::item:selected {
-                background-color: #DBEAFE;
-                color: #1E293B;
-            }
-            QTableView::item:alternate {
-                background-color: #FAFAFA;
-            }
-            QHeaderView::section {
-                background-color: #F8FAFC;
-                color: #475569;
-                padding: 10px;
-                border: none;
-                border-bottom: 2px solid #E2E8F0;
-                font-weight: 600;
-                font-size: 12px;
-            }
-            QHeaderView::section:first {
-                border-top-left-radius: 8px;
-            }
-            QHeaderView::section:last {
-                border-top-right-radius: 8px;
-            }
-        """)
-
+        self.table_view.setStyleSheet(table_style())
         self.table_view.horizontalHeader().setStretchLastSection(True)
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.table_view.horizontalHeader().setDefaultSectionSize(90)
@@ -159,5 +124,5 @@ class ResultTable(QWidget):
     def clear(self):
         self.model.clear()
 
-    def get_results(self) -> list[ScanResult]:
+    def get_results(self) -> "list[ScanResult]":
         return self.model._results[:]
