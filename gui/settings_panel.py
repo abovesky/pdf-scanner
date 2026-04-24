@@ -41,40 +41,40 @@ class SettingsPanel(QScrollArea):
     def _setup_ui(self):
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setSpacing(16)
+        layout.setSpacing(14)
         layout.setContentsMargins(0, 0, 8, 0)
 
         # 目录设置组
         dir_group = self._create_group("目录设置")
         dir_layout = QVBoxLayout(dir_group)
-        dir_layout.setSpacing(10)
-        dir_layout.setContentsMargins(16, 16, 16, 16)
+        dir_layout.setSpacing(8)
+        dir_layout.setContentsMargins(12, 12, 12, 12)
 
         self.source_edit = QLineEdit()
         self.source_edit.setPlaceholderText("选择包含 PDF 的文件夹")
-        self.source_edit.setMinimumHeight(28)
+        self.source_edit.setMinimumHeight(26)
         self.source_btn = QPushButton("浏览")
-        self.source_btn.setFixedWidth(64)
-        self.source_btn.setMinimumHeight(28)
+        self.source_btn.setFixedWidth(56)
+        self.source_btn.setMinimumHeight(26)
         self.source_btn.setCursor(Qt.PointingHandCursor)
         self.source_btn.clicked.connect(self._browse_source)
 
         source_row = QHBoxLayout()
-        source_row.setSpacing(8)
+        source_row.setSpacing(6)
         source_row.addWidget(self.source_edit, 1)
         source_row.addWidget(self.source_btn)
 
         self.backup_edit = QLineEdit()
         self.backup_edit.setPlaceholderText("可选，留空则自动备份")
-        self.backup_edit.setMinimumHeight(28)
+        self.backup_edit.setMinimumHeight(26)
         self.backup_btn = QPushButton("浏览")
-        self.backup_btn.setFixedWidth(64)
-        self.backup_btn.setMinimumHeight(28)
+        self.backup_btn.setFixedWidth(56)
+        self.backup_btn.setMinimumHeight(26)
         self.backup_btn.setCursor(Qt.PointingHandCursor)
         self.backup_btn.clicked.connect(self._browse_backup)
 
         backup_row = QHBoxLayout()
-        backup_row.setSpacing(8)
+        backup_row.setSpacing(6)
         backup_row.addWidget(self.backup_edit, 1)
         backup_row.addWidget(self.backup_btn)
 
@@ -85,20 +85,21 @@ class SettingsPanel(QScrollArea):
 
         layout.addWidget(dir_group)
 
-        # 扫描参数组
-        scan_group = self._create_group("扫描参数")
+        # 扫描与识别组（合并扫描参数 + OCR 设置）
+        scan_group = self._create_group("扫描与识别")
         scan_layout = QGridLayout(scan_group)
-        scan_layout.setSpacing(10)
-        scan_layout.setContentsMargins(16, 16, 16, 16)
+        scan_layout.setSpacing(8)
+        scan_layout.setContentsMargins(12, 12, 12, 12)
         scan_layout.setColumnStretch(1, 1)
         scan_layout.setColumnStretch(3, 1)
 
         self.keywords_edit = QTextEdit()
         self.keywords_edit.setPlaceholderText("每行一个关键词，或逗号分隔")
-        self.keywords_edit.setMaximumHeight(70)
+        self.keywords_edit.setMaximumHeight(56)
+        self.keywords_edit.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
         self.pages_edit = QLineEdit("-1")
-        self.pages_edit.setPlaceholderText("如: 2,-1 或 2:5")
+        self.pages_edit.setPlaceholderText("如: 2,-1")
 
         self.logic_combo = QComboBox()
         self.logic_combo.addItems(["AND", "OR"])
@@ -116,29 +117,6 @@ class SettingsPanel(QScrollArea):
         self.ocr_workers_spin.setRange(1, 8)
         self.ocr_workers_spin.setValue(2)
 
-        scan_layout.addWidget(QLabel("关键词"), 0, 0, Qt.AlignTop)
-        scan_layout.addWidget(self.keywords_edit, 0, 1, 1, 3)
-        scan_layout.addWidget(QLabel("检查页面"), 1, 0)
-        scan_layout.addWidget(self.pages_edit, 1, 1)
-        scan_layout.addWidget(QLabel("搜索逻辑"), 1, 2)
-        scan_layout.addWidget(self.logic_combo, 1, 3)
-        scan_layout.addWidget(QLabel("DPI"), 2, 0)
-        scan_layout.addWidget(self.dpi_spin, 2, 1)
-        scan_layout.addWidget(QLabel("文件并发"), 2, 2)
-        scan_layout.addWidget(self.max_workers_spin, 2, 3)
-        scan_layout.addWidget(QLabel("OCR并发"), 3, 0)
-        scan_layout.addWidget(self.ocr_workers_spin, 3, 1)
-
-        layout.addWidget(scan_group)
-
-        # OCR 设置组
-        ocr_group = self._create_group("OCR 设置")
-        ocr_layout = QGridLayout(ocr_group)
-        ocr_layout.setSpacing(10)
-        ocr_layout.setContentsMargins(16, 16, 16, 16)
-        ocr_layout.setColumnStretch(1, 1)
-        ocr_layout.setColumnStretch(3, 1)
-
         self.ocr_mode_combo = QComboBox()
         self.ocr_mode_combo.addItems(OCREngineFactory.available_modes())
 
@@ -147,50 +125,63 @@ class SettingsPanel(QScrollArea):
 
         self.lang_edit = QLineEdit("chi_sim")
 
-        ocr_layout.addWidget(QLabel("OCR模式"), 0, 0)
-        ocr_layout.addWidget(self.ocr_mode_combo, 0, 1)
-        ocr_layout.addWidget(QLabel("识别精度"), 0, 2)
-        ocr_layout.addWidget(self.accuracy_combo, 0, 3)
-        ocr_layout.addWidget(QLabel("语言"), 1, 0)
-        ocr_layout.addWidget(self.lang_edit, 1, 1)
+        # Row 0: 关键词（占整行）
+        scan_layout.addWidget(QLabel("关键词"), 0, 0, Qt.AlignTop)
+        scan_layout.addWidget(self.keywords_edit, 0, 1, 1, 3)
+        # Row 1: 检查页面 | 搜索逻辑 | DPI
+        scan_layout.addWidget(QLabel("检查页面"), 1, 0)
+        scan_layout.addWidget(self.pages_edit, 1, 1)
+        scan_layout.addWidget(QLabel("搜索逻辑"), 1, 2)
+        scan_layout.addWidget(self.logic_combo, 1, 3)
+        # Row 2: DPI | 文件并发 | OCR并发
+        scan_layout.addWidget(QLabel("DPI"), 2, 0)
+        scan_layout.addWidget(self.dpi_spin, 2, 1)
+        scan_layout.addWidget(QLabel("文件并发"), 2, 2)
+        scan_layout.addWidget(self.max_workers_spin, 2, 3)
+        # Row 3: OCR并发 | OCR模式 | 识别精度
+        scan_layout.addWidget(QLabel("OCR并发"), 3, 0)
+        scan_layout.addWidget(self.ocr_workers_spin, 3, 1)
+        scan_layout.addWidget(QLabel("OCR模式"), 3, 2)
+        scan_layout.addWidget(self.ocr_mode_combo, 3, 3)
+        # Row 4: 识别精度 | 语言
+        scan_layout.addWidget(QLabel("识别精度"), 4, 0)
+        scan_layout.addWidget(self.accuracy_combo, 4, 1)
+        scan_layout.addWidget(QLabel("语言"), 4, 2)
+        scan_layout.addWidget(self.lang_edit, 4, 3)
 
-        layout.addWidget(ocr_group)
+        layout.addWidget(scan_group)
 
         # 选项组
         options_group = self._create_group("选项")
-        options_layout = QVBoxLayout(options_group)
+        options_layout = QGridLayout(options_group)
         options_layout.setSpacing(8)
-        options_layout.setContentsMargins(16, 16, 16, 16)
+        options_layout.setContentsMargins(12, 12, 12, 12)
+        options_layout.setColumnStretch(0, 1)
+        options_layout.setColumnStretch(1, 1)
+        options_layout.setColumnStretch(2, 1)
 
-        row1 = QHBoxLayout()
         self.remove_copyright_cb = QCheckBox("删除版权页")
         self.remove_copyright_cb.setChecked(True)
         self.remove_blank_cb = QCheckBox("删除空白页")
         self.remove_blank_cb.setChecked(True)
         self.case_sensitive_cb = QCheckBox("区分大小写")
-        row1.addWidget(self.remove_copyright_cb)
-        row1.addWidget(self.remove_blank_cb)
-        row1.addWidget(self.case_sensitive_cb)
-        row1.addStretch()
-
-        row2 = QHBoxLayout()
         self.filter_spaces_cb = QCheckBox("过滤空格")
         self.filter_spaces_cb.setChecked(True)
         self.fuzzy_match_cb = QCheckBox("模糊匹配")
         self.fuzzy_match_cb.setChecked(True)
         self.debug_cb = QCheckBox("调试模式")
-        row2.addWidget(self.filter_spaces_cb)
-        row2.addWidget(self.fuzzy_match_cb)
-        row2.addWidget(self.debug_cb)
-        row2.addStretch()
 
-        options_layout.addLayout(row1)
-        options_layout.addLayout(row2)
+        options_layout.addWidget(self.remove_copyright_cb, 0, 0)
+        options_layout.addWidget(self.remove_blank_cb, 0, 1)
+        options_layout.addWidget(self.case_sensitive_cb, 0, 2)
+        options_layout.addWidget(self.filter_spaces_cb, 1, 0)
+        options_layout.addWidget(self.fuzzy_match_cb, 1, 1)
+        options_layout.addWidget(self.debug_cb, 1, 2)
 
         layout.addWidget(options_group)
         layout.addStretch()
 
-        container.setMinimumWidth(280)
+        container.setMinimumWidth(320)
         self.setWidget(container)
 
         # 全局样式

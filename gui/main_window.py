@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
 
         # ========== 左侧边栏 ==========
         self.sidebar = QWidget()
-        self.sidebar.setFixedWidth(340)
+        self.sidebar.setFixedWidth(380)
         self.sidebar.setObjectName("sidebar")
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setSpacing(16)
