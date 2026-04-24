@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from dataclasses import field
 from pathlib import Path
 from typing import Literal
@@ -63,12 +62,7 @@ class AppConfig:
 
     def _load_env(self) -> None:
         """从 .env 文件和环境变量加载敏感配置"""
-        if getattr(sys, "frozen", False):
-            # 打包后：从 exe 所在目录找 .env
-            env_path = Path(sys.executable).parent / ".env"
-        else:
-            # 开发时：从项目根目录找 .env
-            env_path = Path(__file__).parent.parent / ".env"
+        env_path = Path(__file__).parent.parent / ".env"
 
         if env_path.exists():
             with open(env_path, "r", encoding="utf-8") as f:
@@ -79,7 +73,6 @@ class AppConfig:
                     key, value = line.split("=", 1)
                     os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
         else:
-            # .env 不存在时输出提示
             import logging
             logging.getLogger("pdf_scanner").warning(f".env 文件未找到: {env_path}")
 

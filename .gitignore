@@ -15,11 +15,6 @@ env/
 # 进度文件
 pdf_scan_progress.json
 
-# PyInstaller
-build/
-dist/
-*.spec
-
 # IDE
 .vscode/
 .idea/

@@ -254,8 +254,6 @@ def main():
         return
 
     # 打印当前配置摘要
-    import sys as _sys
-    _env_path = str(Path(_sys.executable).parent / ".env") if getattr(_sys, "frozen", False) else str(Path(__file__).parent / ".env")
     print(f"\n{'─' * 50}")
     print(f"  PDF 版权页扫描工具 v{__version__}")
     print(f"{'─' * 50}")
@@ -269,7 +267,6 @@ def main():
     print(f"  删除空白页: {'是' if config.remove_blank_pages else '否'}")
     print(f"  文件并发:  {config.max_workers}")
     print(f"  OCR 并发:  {config.ocr_max_workers}")
-    print(f"  .env 路径: {_env_path}")
     print(f"{'─' * 50}\n")
 
     # Ctrl+C 取消

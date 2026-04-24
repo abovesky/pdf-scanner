@@ -6,6 +6,3 @@ Pillow>=10.0.0
 # baidu-aip>=4.16.0
 # volcengine>=1.0.0
 # requests>=2.31.0
-
-# 打包依赖
-# pyinstaller>=6.0.0
