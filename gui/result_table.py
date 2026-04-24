@@ -142,8 +142,9 @@ class ResultTable(QWidget):
 
         self.table_view.horizontalHeader().setStretchLastSection(True)
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.table_view.horizontalHeader().setDefaultSectionSize(100)
+        self.table_view.horizontalHeader().setDefaultSectionSize(90)
         self.table_view.horizontalHeader().setMinimumSectionSize(60)
+        self.table_view.setColumnWidth(0, 320)
         self.table_view.verticalHeader().setVisible(False)
         self.table_view.setAlternatingRowColors(True)
         self.table_view.setSelectionBehavior(QTableView.SelectRows)
