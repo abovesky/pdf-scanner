@@ -63,7 +63,12 @@ class AppConfig:
 
     def _load_env(self) -> None:
         """从 .env 文件和环境变量加载敏感配置"""
-        env_path = Path(__file__).parent.parent / ".env"
+        if getattr(sys, "frozen", False):
+            # 打包后：从 exe 所在目录找 .env
+            env_path = Path(sys.executable).parent / ".env"
+        else:
+            # 开发时：从项目根目录找 .env
+            env_path = Path(__file__).parent.parent / ".env"
         if env_path.exists():
             with open(env_path, "r", encoding="utf-8") as f:
                 for line in f:
@@ -164,12 +169,13 @@ class AppConfig:
             self.ocr_max_workers = data["ocr_max_workers"]
 
     def _get_app_data_dir(self) -> Path:
-        """获取应用数据目录（打包后使用 APPDATA）"""
+        """获取应用数据目录"""
         if getattr(sys, "frozen", False):
-            base_dir = Path(os.getenv("APPDATA", "")) / "PDFScanner"
-            base_dir.mkdir(parents=True, exist_ok=True)
+            # 打包后：从 exe 所在目录读写
+            base_dir = Path(sys.executable).parent
             return base_dir
-        return Path(".")
+        # 开发时：从项目根目录读写
+        return Path(__file__).parent.parent
 
     def _get_settings_path(self) -> Path:
         """获取配置文件路径"""
