@@ -33,21 +33,21 @@ class ScanResult:
 @dataclass
 class ScanProgress:
     """扫描进度数据"""
-    scanned_files: list[str] = field(default_factory=list)
-    modified_files: list[str] = field(default_factory=list)
-    unmodified_files: list[str] = field(default_factory=list)
+    scanned_files: set[str] = field(default_factory=set)
+    modified_files: set[str] = field(default_factory=set)
+    unmodified_files: set[str] = field(default_factory=set)
 
     def to_dict(self) -> dict:
         return {
-            "scanned_files": self.scanned_files,
-            "modified_files": self.modified_files,
-            "unmodified_files": self.unmodified_files,
+            "scanned_files": sorted(self.scanned_files),
+            "modified_files": sorted(self.modified_files),
+            "unmodified_files": sorted(self.unmodified_files),
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> ScanProgress:
         return cls(
-            scanned_files=data.get("scanned_files", []),
-            modified_files=data.get("modified_files", []),
-            unmodified_files=data.get("unmodified_files", []),
+            scanned_files=set(data.get("scanned_files", [])),
+            modified_files=set(data.get("modified_files", [])),
+            unmodified_files=set(data.get("unmodified_files", [])),
         )

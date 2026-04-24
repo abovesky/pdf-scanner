@@ -2,14 +2,18 @@
 PDF 版权页扫描工具 - CLI 入口
 """
 import argparse
+import logging
 import signal
 import sys
 import threading
+import unicodedata
 from pathlib import Path
 
 from core.config import AppConfig
 from core.models import FileStatus, ScanResult
 from core.scanner import PDFScanner
+
+__version__ = "1.0.0"
 
 
 STATUS_LABELS = {
@@ -23,12 +27,15 @@ STATUS_LABELS = {
 _completed = 0
 _total = 0
 _print_lock = threading.Lock()
+_log_level = 0  # 0=error, 1=warning, 2=info, 3=debug
 
 
 def _log_handler(level: str, msg: str):
-    """scanner 回调 → 仅输出 error，其余由 result 回调驱动"""
-    if level == "error":
-        print(f"  [错误] {msg}")
+    """scanner 回调 → 根据 verbose/quiet 设置输出"""
+    level_priority = {"error": 0, "warning": 1, "info": 2, "debug": 3}
+    if level_priority.get(level, 2) <= _log_level:
+        label = {"error": "错误", "warning": "警告", "info": "信息", "debug": "调试"}.get(level, level)
+        print(f"  [{label}] {msg}")
 
 
 def _result_handler(result: ScanResult):
@@ -53,7 +60,6 @@ def _result_handler(result: ScanResult):
 
 def _display_width(s: str) -> int:
     """计算字符串在终端的显示宽度（CJK 字符占 2 列）"""
-    import unicodedata
     return sum(2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s)
 
 
@@ -153,6 +159,9 @@ def build_parser() -> argparse.ArgumentParser:
     conc_group.add_argument("--ocr-max-workers", type=int, help="OCR 并发数（默认 2）")
 
     # ── 其他 ──
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--verbose", action="store_true", help="显示详细日志（warning/info）")
+    parser.add_argument("--quiet", action="store_true", help="静默模式，仅显示错误")
     parser.add_argument("--save-config", action="store_true", help="保存当前配置到 settings.json")
     parser.add_argument("--reset-progress", action="store_true", help="重置扫描进度（重新扫描所有文件）")
 
@@ -161,42 +170,43 @@ def build_parser() -> argparse.ArgumentParser:
 
 def apply_cli_args(config: AppConfig, args: argparse.Namespace) -> AppConfig:
     """将 CLI 参数覆盖到 AppConfig（仅覆盖显式指定的参数）"""
-    if args.source_dir:
-        config.source_dir = Path(args.source_dir)
-    if args.backup_dir:
-        config.backup_dir = Path(args.backup_dir)
+    # 简单映射：arg_name -> (config_attr, transform)
+    _SIMPLE_MAP = {
+        "source_dir": ("source_dir", lambda v: Path(v)),
+        "backup_dir": ("backup_dir", lambda v: Path(v)),
+        "search_logic": ("search_logic", None),
+        "pages_to_check": ("pages_to_check", None),
+        "ocr_mode": ("recognition_mode", None),
+        "ocr_accuracy": ("ocr_accuracy", None),
+        "ocr_lang": ("ocr_lang", None),
+        "dpi": ("dpi", None),
+        "max_interfering_chars": ("max_interfering_chars", None),
+        "max_workers": ("max_workers", None),
+        "ocr_max_workers": ("ocr_max_workers", None),
+    }
+    for arg_name, (attr, transform) in _SIMPLE_MAP.items():
+        val = getattr(args, arg_name, None)
+        if val:
+            setattr(config, attr, transform(val) if transform else val)
+
+    # 关键词特殊处理
     if args.keywords:
         config.keywords = [k.strip() for k in args.keywords.split(",") if k.strip()]
-    if args.search_logic:
-        config.search_logic = args.search_logic
-    if args.case_sensitive is not None and args.case_sensitive:
-        config.case_sensitive = True
-    if args.pages_to_check:
-        config.pages_to_check = args.pages_to_check
-    if args.no_remove_copyright is not None and args.no_remove_copyright:
-        config.remove_copyright_pages = False
-    if args.no_remove_blank is not None and args.no_remove_blank:
-        config.remove_blank_pages = False
-    if args.debug is not None and args.debug:
-        config.debug_mode = True
-    if args.ocr_mode:
-        config.recognition_mode = args.ocr_mode
-    if args.ocr_accuracy:
-        config.ocr_accuracy = args.ocr_accuracy
-    if args.ocr_lang:
-        config.ocr_lang = args.ocr_lang
-    if args.dpi:
-        config.dpi = args.dpi
-    if args.no_filter_spaces is not None and args.no_filter_spaces:
-        config.filter_spaces = False
-    if args.no_fuzzy_match is not None and args.no_fuzzy_match:
-        config.fuzzy_match = False
-    if args.max_interfering_chars:
-        config.max_interfering_chars = args.max_interfering_chars
-    if args.max_workers:
-        config.max_workers = args.max_workers
-    if args.ocr_max_workers:
-        config.ocr_max_workers = args.ocr_max_workers
+
+    # 布尔标志（--no-xxx 形式取反）
+    _FLAG_MAP = {
+        "case_sensitive": ("case_sensitive", True),
+        "no_remove_copyright": ("remove_copyright_pages", False),
+        "no_remove_blank": ("remove_blank_pages", False),
+        "debug": ("debug_mode", True),
+        "no_filter_spaces": ("filter_spaces", False),
+        "no_fuzzy_match": ("fuzzy_match", False),
+    }
+    for arg_name, (attr, value) in _FLAG_MAP.items():
+        val = getattr(args, arg_name, None)
+        if val is not None and val:
+            setattr(config, attr, value)
+
     return config
 
 
@@ -209,6 +219,15 @@ def main():
     # 加载配置（.env + settings.json）
     config = AppConfig()
     config = apply_cli_args(config, args)
+
+    # 日志级别
+    global _log_level
+    if args.verbose:
+        _log_level = 2  # info
+    elif args.quiet:
+        _log_level = 0  # error only
+    else:
+        _log_level = 1  # warning
 
     # 保存配置
     if args.save_config:

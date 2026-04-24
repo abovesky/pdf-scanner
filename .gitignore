@@ -3,37 +3,30 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
 
-# Virtual environments
+# 虚拟环境
 venv/
-env/
-ENV/
 .venv/
+env/
 
-# Build / Distribution
+# 敏感配置
+.env
+settings.json
+
+# 进度文件
+pdf_scan_progress.json
+
+# PyInstaller
 build/
 dist/
 *.spec
-*.egg-info/
 
 # IDE
 .vscode/
 .idea/
 *.swp
-*.suo
+*.swo
 
-# OS
+# 系统文件
 .DS_Store
 Thumbs.db
-
-# Secrets / Local config
-.env
-settings.json
-
-# Runtime progress
-pdf_scan_progress.json
-
-# PyInstaller
-*.manifest
-*.log

@@ -7,8 +7,11 @@ from __future__ import annotations
 import json
 import os
 import sys
+from dataclasses import field
 from pathlib import Path
 from typing import Literal
+
+_DEFAULT_KEYWORDS = ["出版发行", "侵权", "版权"]
 
 
 class AppConfig:
@@ -19,7 +22,7 @@ class AppConfig:
     backup_dir: Path | None = None
 
     # 扫描参数
-    keywords: list[str] = ["出版发行", "侵权", "版权"]
+    keywords: list[str] = field(default_factory=lambda: _DEFAULT_KEYWORDS.copy())
     search_logic: Literal["AND", "OR"] = "AND"
     case_sensitive: bool = False
     pages_to_check: str = "-1"
@@ -92,22 +95,6 @@ class AppConfig:
         except Exception:
             pass
 
-    def _get_settings_path(self) -> Path:
-        """获取配置文件路径（打包后使用 APPDATA 目录）"""
-        if getattr(sys, "frozen", False):
-            base_dir = Path(os.getenv("APPDATA", "")) / "PDFScanner"
-            base_dir.mkdir(parents=True, exist_ok=True)
-            return base_dir / "settings.json"
-        return self.settings_file
-
-    def get_resume_file_path(self) -> Path:
-        """获取进度文件路径"""
-        if getattr(sys, "frozen", False):
-            base_dir = Path(os.getenv("APPDATA", "")) / "PDFScanner"
-            base_dir.mkdir(parents=True, exist_ok=True)
-            return base_dir / "pdf_scan_progress.json"
-        return self.resume_file
-
     def save_settings(self) -> None:
         """保存当前配置到 settings.json"""
         data = {
@@ -176,6 +163,26 @@ class AppConfig:
         if "ocr_max_workers" in data:
             self.ocr_max_workers = data["ocr_max_workers"]
 
+    def _get_app_data_dir(self) -> Path:
+        """获取应用数据目录（打包后使用 APPDATA）"""
+        if getattr(sys, "frozen", False):
+            base_dir = Path(os.getenv("APPDATA", "")) / "PDFScanner"
+            base_dir.mkdir(parents=True, exist_ok=True)
+            return base_dir
+        return Path(".")
+
+    def _get_settings_path(self) -> Path:
+        """获取配置文件路径"""
+        if getattr(sys, "frozen", False):
+            return self._get_app_data_dir() / "settings.json"
+        return self.settings_file
+
+    def get_resume_file_path(self) -> Path:
+        """获取进度文件路径"""
+        if getattr(sys, "frozen", False):
+            return self._get_app_data_dir() / "pdf_scan_progress.json"
+        return self.resume_file
+
     def validate(self) -> list[str]:
         """验证配置，返回错误信息列表"""
         errors = []
@@ -187,4 +194,16 @@ class AppConfig:
             errors.append("搜索逻辑必须是 AND 或 OR")
         if self.recognition_mode not in ("local", "baidu", "volc", "iflytek"):
             errors.append(f"不支持的 OCR 模式: {self.recognition_mode}")
+
+        # 检查 OCR 密钥是否配置
+        key_checks = {
+            "baidu": [("BAIDU_API_KEY", self.baidu_api_key), ("BAIDU_SECRET_KEY", self.baidu_secret_key)],
+            "volc": [("VOLC_ACCESS_KEY", self.volc_access_key), ("VOLC_SECRET_KEY", self.volc_secret_key)],
+            "iflytek": [("IFLYTEK_APP_ID", self.iflytek_app_id), ("IFLYTEK_API_KEY", self.iflytek_api_key), ("IFLYTEK_SECRET_KEY", self.iflytek_secret_key)],
+        }
+        if self.recognition_mode in key_checks:
+            missing = [name for name, val in key_checks[self.recognition_mode] if not val]
+            if missing:
+                errors.append(f"OCR 模式 '{self.recognition_mode}' 缺少密钥配置: {', '.join(missing)}，请在 .env 文件或环境变量中设置")
+
         return errors

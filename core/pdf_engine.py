@@ -108,44 +108,6 @@ class PDFEngine:
 
         return result
 
-    def render_page_to_bytes(
-        self, pdf_path: Path, page_num: int, dpi: int = 150, format: str = "JPEG"
-    ) -> bytes | None:
-        """
-        将单页渲染为图像 bytes，跳过 PIL 中转以提升性能
-        """
-        import fitz
-
-        with fitz.open(str(pdf_path)) as doc:
-            if page_num < 1 or page_num > len(doc):
-                return None
-            page = doc[page_num - 1]
-            zoom = dpi / 72.0
-            mat = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat)
-
-            if format.upper() == "JPEG":
-                return pix.tobytes("jpeg")
-            elif format.upper() == "PNG":
-                return pix.tobytes("png")
-            else:
-                from PIL import Image
-                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                import io
-                buf = io.BytesIO()
-                img.save(buf, format=format)
-                return buf.getvalue()
-
-    def extract_text(self, pdf_path: Path, page_num: int) -> str:
-        """提取指定页面的文本"""
-        import fitz
-
-        with fitz.open(str(pdf_path)) as doc:
-            if page_num < 1 or page_num > len(doc):
-                return ""
-            page = doc[page_num - 1]
-            return page.get_text()
-
     def delete_pages(
         self,
         pdf_path: Path,

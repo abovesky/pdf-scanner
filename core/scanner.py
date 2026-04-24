@@ -41,7 +41,6 @@ class PDFScanner:
 
         # 回调函数（供 GUI 调用）
         self.log_callback: Callable[[str, str], None] | None = None
-        self.progress_callback: Callable[[int, int], None] | None = None
         self.result_callback: Callable[[ScanResult], None] | None = None
 
         # 内部状态
@@ -75,13 +74,23 @@ class PDFScanner:
         if self.log_callback:
             self.log_callback(level, msg)
 
-    def _emit_progress(self, current: int, total: int) -> None:
-        if self.progress_callback:
-            self.progress_callback(current, total)
-
     def _emit_result(self, result: ScanResult) -> None:
         if self.result_callback:
             self.result_callback(result)
+
+    def _backup_file(self, pdf_path: Path) -> bool:
+        """备份文件，成功返回 True，失败返回 False"""
+        if not self.config.backup_dir:
+            return True
+        try:
+            self.config.backup_dir.mkdir(parents=True, exist_ok=True)
+            backup_path = self.config.backup_dir / pdf_path.name
+            shutil.copy2(str(pdf_path), str(backup_path))
+            self._log("info", f"  已备份原文件至: {backup_path}")
+            return True
+        except Exception as e:
+            self._log("warning", f"  备份失败: {e}")
+            return False
 
     def _check_pause_cancel(self) -> bool:
         """检查暂停和取消信号，返回 True 表示已取消"""
@@ -117,21 +126,13 @@ class PDFScanner:
     def _mark_processed(self, file_path: Path, modified: bool = False) -> None:
         file_key = str(file_path.relative_to(self.config.source_dir))
 
-        scanned = set(self.progress_data.scanned_files)
-        modified_files = set(self.progress_data.modified_files)
-        unmodified_files = set(self.progress_data.unmodified_files)
-
-        scanned.add(file_key)
+        self.progress_data.scanned_files.add(file_key)
         if modified:
-            modified_files.add(file_key)
-            unmodified_files.discard(file_key)
+            self.progress_data.modified_files.add(file_key)
+            self.progress_data.unmodified_files.discard(file_key)
         else:
-            unmodified_files.add(file_key)
-            modified_files.discard(file_key)
-
-        self.progress_data.scanned_files = list(scanned)
-        self.progress_data.modified_files = list(modified_files)
-        self.progress_data.unmodified_files = list(unmodified_files)
+            self.progress_data.unmodified_files.add(file_key)
+            self.progress_data.modified_files.discard(file_key)
         self._pending_saves.append(file_key)
 
         if len(self._pending_saves) >= 10:
@@ -139,7 +140,7 @@ class PDFScanner:
             self._pending_saves.clear()
 
     def get_pdf_files(self) -> list[Path]:
-        scanned = set(self.progress_data.scanned_files)
+        scanned = self.progress_data.scanned_files
         try:
             return [
                 fp
@@ -194,12 +195,11 @@ class PDFScanner:
 
         for kw in self.keywords:
             proc_kw = self.preprocess_text(kw)
-            found1, _, match1 = self.find_keyword_fuzzy(text, kw)
-            found2, _, match2 = self.find_keyword_fuzzy(processed_text, proc_kw)
+            found, _, match = self.find_keyword_fuzzy(processed_text, proc_kw)
 
-            if found1 or found2:
+            if found:
                 found_keywords.add(kw)
-                matches_info[kw] = match1 if found1 else match2
+                matches_info[kw] = match
 
         condition_met = (
             len(found_keywords) == len(self.keywords)
@@ -322,13 +322,14 @@ class PDFScanner:
 
             # 备份
             if self.config.backup_dir and self.config.remove_copyright_pages:
-                try:
-                    self.config.backup_dir.mkdir(parents=True, exist_ok=True)
-                    backup_path = self.config.backup_dir / pdf_path.name
-                    shutil.copy2(str(pdf_path), str(backup_path))
-                    self._log("info", f"  已备份原文件至: {backup_path}")
-                except Exception as e:
-                    self._log("warning", f"  备份失败: {e}")
+                if not self._backup_file(pdf_path):
+                    self._mark_processed(pdf_path, False)
+                    return ScanResult(
+                        file_name=pdf_path.name,
+                        file_path=pdf_path,
+                        status=FileStatus.FAILED,
+                        message="备份失败",
+                    )
 
             # 删除版权页
             if self.config.remove_copyright_pages:
@@ -372,21 +373,14 @@ class PDFScanner:
             if self.config.remove_blank_pages:
                 has_blank = self.pdf_engine.find_blank_pages(pdf_path)
                 if has_blank:
-                    if self.config.backup_dir:
-                        try:
-                            self.config.backup_dir.mkdir(parents=True, exist_ok=True)
-                            backup_path = self.config.backup_dir / pdf_path.name
-                            shutil.copy2(str(pdf_path), str(backup_path))
-                            self._log("info", f"  已备份原文件至: {backup_path}")
-                        except Exception as e:
-                            self._log("warning", f"  备份失败: {e}")
-                            self._mark_processed(pdf_path, False)
-                            return ScanResult(
-                                file_name=pdf_path.name,
-                                file_path=pdf_path,
-                                status=FileStatus.FAILED,
-                                message=f"备份失败: {e}",
-                            )
+                    if not self._backup_file(pdf_path):
+                        self._mark_processed(pdf_path, False)
+                        return ScanResult(
+                            file_name=pdf_path.name,
+                            file_path=pdf_path,
+                            status=FileStatus.FAILED,
+                            message="备份失败",
+                        )
 
                     success, blank_pages = self.pdf_engine.remove_blank_pages(
                         pdf_path, backup_dir=None
@@ -447,23 +441,9 @@ class PDFScanner:
                         ))
 
                     completed += 1
-                    self._emit_progress(completed, total)
         finally:
             self._save_progress()
 
         self._log("info", "\n" + "=" * 50)
         self._log("info", "=== 扫描完成 ===")
-        self._print_summary()
         return results
-
-    def _print_summary(self) -> None:
-        scanned = len(self.progress_data.scanned_files)
-        modified = len(self.progress_data.modified_files)
-        unmodified = len(self.progress_data.unmodified_files)
-        self._log("info", "\n" + "=" * 50)
-        self._log("info", "扫描总结")
-        self._log("info", "=" * 50)
-        self._log("info", f"已扫描文件: {scanned} 个")
-        self._log("info", f"已修改文件: {modified} 个")
-        self._log("info", f"未修改文件: {unmodified} 个")
-        self._log("info", "=" * 50)

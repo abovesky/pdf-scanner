@@ -50,8 +50,11 @@ class LocalOCREngine(OCREngine):
     def __init__(self, lang: str = "chi_sim", case_sensitive: bool = False):
         self.lang = lang
         self.case_sensitive = case_sensitive
-        import pytesseract
-        self._pytesseract = pytesseract
+        try:
+            import pytesseract
+            self._pytesseract = pytesseract
+        except ImportError:
+            raise ImportError("本地 OCR 需要 pytesseract 库，请运行: pip install pytesseract，并确保已安装 Tesseract-OCR")
 
     def recognize(self, image) -> str:
         try:
@@ -70,7 +73,10 @@ class BaiduOCREngine(OCREngine):
     _lock = threading.Lock()
 
     def __init__(self, config: OCRConfig, accuracy: str = "general_basic", case_sensitive: bool = False):
-        from aip import AipOcr
+        try:
+            from aip import AipOcr
+        except ImportError:
+            raise ImportError("百度 OCR 需要 baidu-aip 库，请运行: pip install baidu-aip")
         self.client = AipOcr(config.app_id, config.api_key, config.secret_key)
         self.accuracy = accuracy
         self.case_sensitive = case_sensitive
@@ -124,21 +130,37 @@ class BaiduOCREngine(OCREngine):
 
 
 class VolcOCREngine(OCREngine):
-    """火山引擎 OCR"""
+    """火山引擎 OCR — 带速率控制"""
+
+    _last_request_time: float = 0.0
+    _min_interval: float = 0.5
+    _lock = threading.Lock()
 
     def __init__(self, config: OCRConfig, case_sensitive: bool = False):
-        from volcengine.visual.VisualService import VisualService
+        try:
+            from volcengine.visual.VisualService import VisualService
+        except ImportError:
+            raise ImportError("火山引擎 OCR 需要 volcengine-python-sdk 库，请运行: pip install volcengine-python-sdk")
         self.client = VisualService()
         self.client.set_ak(config.access_key)
         self.client.set_sk(config.secret_key)
         self.case_sensitive = case_sensitive
 
+    def _rate_limit(self) -> None:
+        """类级别速率限制"""
+        with VolcOCREngine._lock:
+            now = time.time()
+            elapsed = now - VolcOCREngine._last_request_time
+            if elapsed < VolcOCREngine._min_interval:
+                time.sleep(VolcOCREngine._min_interval - elapsed)
+            VolcOCREngine._last_request_time = time.time()
+
     def recognize(self, image) -> str:
         try:
             import base64
             image_base64 = base64.b64encode(self._image_to_bytes(image)).decode("utf-8")
+            self._rate_limit()
             response = self.client.ocr_normal({"image_base64": image_base64})
-            time.sleep(0.5)
 
             if response and "data" in response and response["data"] and "line_texts" in response["data"]:
                 text = "\n".join(response["data"]["line_texts"])
