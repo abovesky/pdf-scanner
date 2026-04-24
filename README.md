@@ -128,15 +128,20 @@ python main.py --help
 
 负数表示从后往前（`-1` = 最后一页，`-2` = 倒数第二页）。
 
-## 打包
+## 打包与分发
+
+一键打包成可分发的 zip（包含 exe + .env 模板 + settings.json + 使用说明）：
 
 ```bash
 pip install pyinstaller
 python build.py
-# 输出: dist/PDFScanner.exe
+# 输出: dist/PDFScanner_v1.0.0.zip
 ```
 
-打包后将 `.env` 放在 exe 同级目录，或设置系统环境变量。
+将 zip 发给对方，解压后：
+1. 编辑 `.env` 填入 OCR 密钥
+2. 编辑 `settings.json` 设置源目录
+3. 双击 `PDFScanner.exe` 运行
 
 ## 项目结构
 
