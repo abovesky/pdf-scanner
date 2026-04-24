@@ -46,31 +46,42 @@ class SettingsPanel(QScrollArea):
 
         # 目录设置组
         dir_group = self._create_group("目录设置")
-        dir_layout = QGridLayout(dir_group)
+        dir_layout = QVBoxLayout(dir_group)
         dir_layout.setSpacing(10)
         dir_layout.setContentsMargins(16, 16, 16, 16)
-        dir_layout.setColumnStretch(1, 1)
 
         self.source_edit = QLineEdit()
         self.source_edit.setPlaceholderText("选择包含 PDF 的文件夹")
+        self.source_edit.setMinimumHeight(28)
         self.source_btn = QPushButton("浏览")
-        self.source_btn.setFixedWidth(60)
+        self.source_btn.setFixedWidth(64)
+        self.source_btn.setMinimumHeight(28)
         self.source_btn.setCursor(Qt.PointingHandCursor)
         self.source_btn.clicked.connect(self._browse_source)
 
+        source_row = QHBoxLayout()
+        source_row.setSpacing(8)
+        source_row.addWidget(self.source_edit, 1)
+        source_row.addWidget(self.source_btn)
+
         self.backup_edit = QLineEdit()
         self.backup_edit.setPlaceholderText("可选，留空则自动备份")
+        self.backup_edit.setMinimumHeight(28)
         self.backup_btn = QPushButton("浏览")
-        self.backup_btn.setFixedWidth(60)
+        self.backup_btn.setFixedWidth(64)
+        self.backup_btn.setMinimumHeight(28)
         self.backup_btn.setCursor(Qt.PointingHandCursor)
         self.backup_btn.clicked.connect(self._browse_backup)
 
-        dir_layout.addWidget(QLabel("源目录"), 0, 0)
-        dir_layout.addWidget(self.source_edit, 0, 1)
-        dir_layout.addWidget(self.source_btn, 0, 2)
-        dir_layout.addWidget(QLabel("备份目录"), 1, 0)
-        dir_layout.addWidget(self.backup_edit, 1, 1)
-        dir_layout.addWidget(self.backup_btn, 1, 2)
+        backup_row = QHBoxLayout()
+        backup_row.setSpacing(8)
+        backup_row.addWidget(self.backup_edit, 1)
+        backup_row.addWidget(self.backup_btn)
+
+        dir_layout.addWidget(QLabel("源目录"))
+        dir_layout.addLayout(source_row)
+        dir_layout.addWidget(QLabel("备份目录"))
+        dir_layout.addLayout(backup_row)
 
         layout.addWidget(dir_group)
 
@@ -179,6 +190,7 @@ class SettingsPanel(QScrollArea):
         layout.addWidget(options_group)
         layout.addStretch()
 
+        container.setMinimumWidth(280)
         self.setWidget(container)
 
         # 全局样式
