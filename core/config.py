@@ -44,7 +44,6 @@ class AppConfig:
 
     # 进度文件
     resume_file: Path = Path("pdf_scan_progress.json")
-    settings_file: Path = Path("settings.json")
 
     # OCR 密钥（从 .env 或环境变量读取）
     baidu_app_id: str = ""
@@ -167,25 +166,16 @@ class AppConfig:
             self.ocr_max_workers = data["ocr_max_workers"]
 
     def _get_app_data_dir(self) -> Path:
-        """获取应用数据目录"""
-        if getattr(sys, "frozen", False):
-            # 打包后：从 exe 所在目录读写
-            base_dir = Path(sys.executable).parent
-            return base_dir
-        # 开发时：从项目根目录读写
+        """获取项目根目录"""
         return Path(__file__).parent.parent
 
     def _get_settings_path(self) -> Path:
         """获取配置文件路径"""
-        if getattr(sys, "frozen", False):
-            return self._get_app_data_dir() / "settings.json"
-        return self.settings_file
+        return self._get_app_data_dir() / "settings.json"
 
     def get_resume_file_path(self) -> Path:
         """获取进度文件路径"""
-        if getattr(sys, "frozen", False):
-            return self._get_app_data_dir() / "pdf_scan_progress.json"
-        return self.resume_file
+        return self._get_app_data_dir() / "pdf_scan_progress.json"
 
     def validate(self) -> list[str]:
         """验证配置，返回错误信息列表"""
