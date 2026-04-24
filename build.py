@@ -19,13 +19,27 @@ def build():
     print(f"{APP_NAME} 打包脚本 v{VERSION}")
     print("=" * 50)
 
+    # 关闭可能正在运行的旧进程（避免文件锁定）
+    if sys.platform == "win32":
+        try:
+            result = subprocess.run(
+                ["taskkill", "/F", "/IM", f"{APP_NAME}.exe"],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0:
+                print(f"已关闭正在运行的 {APP_NAME}.exe")
+                import time
+                time.sleep(1)  # 等待进程完全释放文件
+        except Exception:
+            pass
+
     # 清理旧构建
     dist_dir = Path("dist")
     build_dir = Path("build")
     if dist_dir.exists():
-        shutil.rmtree(dist_dir)
+        shutil.rmtree(dist_dir, ignore_errors=True)
     if build_dir.exists():
-        shutil.rmtree(build_dir)
+        shutil.rmtree(build_dir, ignore_errors=True)
 
     # PyInstaller 参数
     cmd = [
@@ -58,6 +72,11 @@ def build():
 
     if result.returncode != 0:
         print("\n打包失败，请检查错误信息。")
+        if "PermissionError" in str(result.stderr or "") or "Permission denied" in str(result.stderr or ""):
+            print("\n提示: 可能是 Windows Defender 锁定了 exe 文件，请尝试：")
+            print("  1. 关闭 Windows Defender 实时保护（设置 → 隐私和安全 → 病毒防护 → 管理设置）")
+            print(f"  2. 或将项目目录 {Path.cwd()} 添加到 Defender 排除项")
+            print("  3. 然后重新运行 python build.py")
         sys.exit(1)
 
     print("\n" + "=" * 50)
