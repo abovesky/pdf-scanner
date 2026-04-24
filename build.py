@@ -83,6 +83,14 @@ def build():
     print("打包成功!")
     print("=" * 50)
 
+    # 复制配置文件到 dist/ 供本地测试
+    dist_dir = Path("dist")
+    for name in [".env", "settings.json"]:
+        src = Path(name)
+        if src.exists():
+            shutil.copy2(src, dist_dir / name)
+            print(f"已复制 {name} → dist/{name}")
+
 
 def package():
     """打包成可分发的 zip"""

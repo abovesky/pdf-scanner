@@ -69,6 +69,7 @@ class AppConfig:
         else:
             # 开发时：从项目根目录找 .env
             env_path = Path(__file__).parent.parent / ".env"
+
         if env_path.exists():
             with open(env_path, "r", encoding="utf-8") as f:
                 for line in f:
@@ -77,6 +78,10 @@ class AppConfig:
                         continue
                     key, value = line.split("=", 1)
                     os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        else:
+            # .env 不存在时输出提示
+            import logging
+            logging.getLogger("pdf_scanner").warning(f".env 文件未找到: {env_path}")
 
         # 从环境变量读取
         self.baidu_app_id = os.getenv("BAIDU_APP_ID", "")
