@@ -444,6 +444,16 @@ class PDFScanner:
         finally:
             self._save_progress()
 
+        # 所有文件处理完成后，自动删除进度文件
+        if not self.get_pdf_files():
+            resume_file = self.config.get_resume_file_path()
+            if resume_file.exists():
+                try:
+                    resume_file.unlink()
+                    self._log("info", "所有文件已处理完成，已自动删除进度文件")
+                except Exception as e:
+                    self._log("warning", f"删除进度文件失败: {e}")
+
         self._log("info", "\n" + "=" * 50)
         self._log("info", "=== 扫描完成 ===")
         return results
