@@ -5,6 +5,7 @@ PDF 统一引擎
 from __future__ import annotations
 
 import logging
+import os
 import re
 import shutil
 from pathlib import Path
@@ -162,6 +163,7 @@ class PDFEngine:
         output_path: 如果指定，输出到新路径；否则覆盖原文件
         """
         import fitz
+        import tempfile
 
         try:
             if backup_dir:
@@ -181,7 +183,15 @@ class PDFEngine:
 
                 save_path = output_path or pdf_path
                 save_path.parent.mkdir(parents=True, exist_ok=True)
-                doc.save(str(save_path), garbage=4, deflate=True)
+
+                # Windows 上直接保存到同一文件可能因句柄占用失败，先写临时文件再替换
+                if save_path == pdf_path:
+                    fd, tmp_path = tempfile.mkstemp(suffix=".pdf", dir=str(pdf_path.parent))
+                    os.close(fd)
+                    doc.save(tmp_path, garbage=4, deflate=True)
+                    shutil.move(tmp_path, str(save_path))
+                else:
+                    doc.save(str(save_path), garbage=4, deflate=True)
 
             return True
         except Exception as e:
