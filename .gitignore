@@ -11,7 +11,6 @@ env/
 
 # 敏感配置
 .env
-settings.json
 
 # 进度文件
 pdf_scan_progress.json

@@ -1,0 +1,24 @@
+{
+  "source_dir": "C:\\Users\\abovesky\\Desktop\\test",
+  "backup_dir": "C:\\Users\\abovesky\\Desktop\\test_backup",
+  "keywords": [
+    "出版发行",
+    "侵权",
+    "版权"
+  ],
+  "search_logic": "AND",
+  "case_sensitive": false,
+  "pages_to_check": "-1",
+  "remove_copyright_pages": true,
+  "remove_blank_pages": true,
+  "debug_mode": false,
+  "recognition_mode": "baidu",
+  "ocr_accuracy": "accurate_basic",
+  "ocr_lang": "chi_sim",
+  "dpi": 300,
+  "filter_spaces": true,
+  "fuzzy_match": true,
+  "max_interfering_chars": 2,
+  "max_workers": 3,
+  "ocr_max_workers": 2
+}
