@@ -31,6 +31,9 @@ Thumbs.db
 .env
 settings.json
 
+# Runtime progress
+pdf_scan_progress.json
+
 # PyInstaller
 *.manifest
 *.log
