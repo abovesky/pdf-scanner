@@ -1,6 +1,6 @@
 """
 多用途 CLI 工具包 — 统一入口
-支持子命令：pdf-scan, rename 等
+支持子命令：pdf-keyword, pdf-blank, rename 等
 """
 import argparse
 import sys
@@ -17,13 +17,15 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 可用子命令:
-  pdf-scan   PDF 版权页扫描与删除
-  rename     文件批量重命名
+  pdf-keyword   删除 PDF 中包含指定关键词的页面
+  pdf-blank     删除 PDF 空白页
+  rename        文件批量重命名
 
 使用 'python main.py <子命令> --help' 查看子命令详细用法
 
 示例:
-  python main.py pdf-scan --source-dir ./pdfs --keywords "版权"
+  python main.py pdf-keyword --source-dir ./pdfs --keywords "版权"
+  python main.py pdf-blank --source-dir ./pdfs --dry-run
   python main.py rename ./pics/*.jpg --pattern "IMG_{seq:03d}" --dry-run
 """,
     )

@@ -1,6 +1,6 @@
 # 多用途 CLI 工具包
 
-一个基于子命令架构的命令行工具集，当前包含 PDF 版权页扫描和文件批量重命名功能。
+一个基于子命令架构的命令行工具集，当前包含 PDF 页面处理和文件批量重命名功能。
 
 ## 安装
 
@@ -33,28 +33,28 @@ python main.py --help                # 查看所有子命令
 python main.py <子命令> --help       # 查看子命令详细用法
 ```
 
-### pdf-scan — PDF 版权页扫描
+### pdf-keyword — 删除 PDF 中包含指定关键词的页面
 
-自动识别并删除 PDF 中的版权页，支持多种 OCR 引擎。
+通过 OCR 识别 PDF 页面文本，自动删除包含指定关键词的页面。
 
 ```bash
 # 使用 settings.json 中的配置运行
-python main.py pdf-scan
+python main.py pdf-keyword
 
 # 指定源目录和关键词
-python main.py pdf-scan --source-dir ./pdfs --keywords "出版发行,版权"
+python main.py pdf-keyword --source-dir ./pdfs --keywords "出版发行,版权"
 
 # 仅检测不删除
-python main.py pdf-scan --source-dir ./pdfs --no-remove-copyright --no-remove-blank
+python main.py pdf-keyword --source-dir ./pdfs --keywords "版权" --detect-only
 
 # 使用火山引擎 OCR
-python main.py pdf-scan --source-dir ./pdfs --ocr-mode volc
+python main.py pdf-keyword --source-dir ./pdfs --ocr-mode volc
 
 # 保存当前参数到配置文件
-python main.py pdf-scan --source-dir ./pdfs --save-config
+python main.py pdf-keyword --source-dir ./pdfs --save-config
 
 # 重置扫描进度
-python main.py pdf-scan --reset-progress
+python main.py pdf-keyword --reset-progress
 ```
 
 **OCR 配置**：在项目根目录创建 `.env` 文件，填入对应平台的密钥：
@@ -67,6 +67,27 @@ BAIDU_SECRET_KEY=your_secret
 # IFLYTEK_APP_ID=your_id
 # IFLYTEK_API_KEY=your_key
 # IFLYTEK_SECRET_KEY=your_secret
+```
+
+### pdf-blank — 删除 PDF 空白页
+
+扫描 PDF 文件，查找并删除空白页（仅基于文本分析，无需 OCR）。
+
+```bash
+# 删除空白页
+python main.py pdf-blank --source-dir ./pdfs
+
+# 预览模式（不实际删除）
+python main.py pdf-blank --source-dir ./pdfs --dry-run
+
+# 指定备份目录
+python main.py pdf-blank --source-dir ./pdfs --backup-dir ./backup
+
+# 调整空白页判定阈值（默认 10，值越大判定越严格）
+python main.py pdf-blank --source-dir ./pdfs --min-text-length 20
+
+# 递归扫描子目录
+python main.py pdf-blank --source-dir ./pdfs --recursive
 ```
 
 ### rename — 文件批量重命名
@@ -103,11 +124,12 @@ python main.py rename ./mixed/ --replace "old>new" --include-ext jpg,png
 
 ```
 ├── main.py                 # CLI 统一入口（子命令分发）
-├── settings.json           # pdf-scan 配置文件
+├── settings.json           # pdf-keyword 配置文件
 ├── requirements.txt        # Python 依赖
 ├── commands/               # 子命令模块
 │   ├── __init__.py         # 命令基类与自动注册
-│   ├── pdf_scan.py         # PDF 版权页扫描命令
+│   ├── pdf_keyword.py      # 删除含关键词页面命令
+│   ├── pdf_blank.py        # 删除空白页命令
 │   └── rename.py           # 文件批量重命名命令
 └── core/                   # 核心功能模块
     ├── __init__.py

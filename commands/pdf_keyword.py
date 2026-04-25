@@ -1,13 +1,12 @@
 """
-pdf-scan 子命令 — PDF 版权页扫描与删除
-从原 main.py 迁移而来
+pdf-keyword 子命令 — 删除 PDF 中包含指定关键词的页面
+基于 OCR 识别 + 关键词匹配，支持多种 OCR 引擎
 """
 from __future__ import annotations
 
 import argparse
 import logging
 import signal
-import sys
 import threading
 import unicodedata
 from pathlib import Path
@@ -26,11 +25,10 @@ STATUS_LABELS = {
     FileStatus.SKIPPED: "已跳过",
 }
 
-# 模块级状态
 _completed = 0
 _total = 0
 _print_lock = threading.Lock()
-_log_level = 0  # 0=error, 1=warning, 2=info, 3=debug
+_log_level = 0
 
 
 def _log_handler(level: str, msg: str):
@@ -47,9 +45,7 @@ def _result_handler(result: ScanResult):
         status = STATUS_LABELS.get(result.status, str(result.status))
         parts = [f"[{_completed}/{_total}]", result.file_name, status]
         if result.copyright_pages:
-            parts.append(f"版权页:{result.copyright_pages}")
-        if result.blank_pages_removed:
-            parts.append(f"删空白页:{result.blank_pages_removed}")
+            parts.append(f"关键词页:{result.copyright_pages}")
         if result.elapsed_seconds:
             parts.append(f"{result.elapsed_seconds}s")
         if result.status == FileStatus.FAILED and result.message:
@@ -69,40 +65,39 @@ def print_results(results: list[ScanResult]):
     if not results:
         return
 
-    COL_NAME, COL_STATUS, COL_CP, COL_BP, COL_TP, COL_ET = 30, 10, 10, 8, 8, 8
+    COL_NAME, COL_STATUS, COL_KP, COL_TP, COL_ET = 30, 10, 10, 8, 8
 
     def row(*cols_with_width):
         return "  " + " ".join(_pad(s, w) for s, w in cols_with_width)
 
-    print(f"\n{'=' * 80}")
+    print(f"\n{'=' * 75}")
     print("  扫描结果")
-    print(f"{'=' * 80}")
-    print(row(("文件名", COL_NAME), ("状态", COL_STATUS), ("版权页", COL_CP), ("空白页", COL_BP), ("总页数", COL_TP), ("耗时", COL_ET)))
-    print(row(("-" * COL_NAME, COL_NAME), ("-" * COL_STATUS, COL_STATUS), ("-" * COL_CP, COL_CP), ("-" * COL_BP, COL_BP), ("-" * COL_TP, COL_TP), ("-" * COL_ET, COL_ET)))
+    print(f"{'=' * 75}")
+    print(row(("文件名", COL_NAME), ("状态", COL_STATUS), ("关键词页", COL_KP), ("总页数", COL_TP), ("耗时", COL_ET)))
+    print(row(("-" * COL_NAME, COL_NAME), ("-" * COL_STATUS, COL_STATUS), ("-" * COL_KP, COL_KP), ("-" * COL_TP, COL_TP), ("-" * COL_ET, COL_ET)))
 
     for r in results:
         status_str = STATUS_LABELS.get(r.status, str(r.status))
-        cp = str(r.copyright_pages) if r.copyright_pages else "-"
-        bp = str(r.blank_pages_removed) if r.blank_pages_removed else "-"
+        kp = str(r.copyright_pages) if r.copyright_pages else "-"
         tp = str(r.total_pages) if r.total_pages else "-"
         et = f"{r.elapsed_seconds}s" if r.elapsed_seconds else "-"
         name = r.file_name[:28] + ".." if len(r.file_name) > 30 else r.file_name
-        print(row((name, COL_NAME), (status_str, COL_STATUS), (cp, COL_CP), (bp, COL_BP), (tp, COL_TP), (et, COL_ET)))
+        print(row((name, COL_NAME), (status_str, COL_STATUS), (kp, COL_KP), (tp, COL_TP), (et, COL_ET)))
 
     modified = sum(1 for r in results if r.status == FileStatus.MODIFIED)
     unmodified = sum(1 for r in results if r.status == FileStatus.UNMODIFIED)
     failed = sum(1 for r in results if r.status == FileStatus.FAILED)
     skipped = sum(1 for r in results if r.status == FileStatus.SKIPPED)
 
-    print(f"{'=' * 80}")
+    print(f"{'=' * 75}")
     print(f"  总计: {len(results)} 个文件 | 已修改: {modified} | 未修改: {unmodified} | 失败: {failed} | 跳过: {skipped}")
-    print(f"{'=' * 80}")
+    print(f"{'=' * 75}")
 
 
-class PdfScanCommand(BaseCommand):
-    name = "pdf-scan"
-    help_text = "PDF 版权页扫描与删除"
-    description = "自动识别并删除 PDF 中的版权页，支持多种 OCR 引擎"
+class PdfKeywordCommand(BaseCommand):
+    name = "pdf-keyword"
+    help_text = "删除 PDF 中包含指定关键词的页面"
+    description = "通过 OCR 识别 PDF 页面文本，自动删除包含指定关键词的页面"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         # 目录
@@ -110,15 +105,14 @@ class PdfScanCommand(BaseCommand):
         dir_group.add_argument("--source-dir", type=str, help="源目录（包含 PDF 文件）")
         dir_group.add_argument("--backup-dir", type=str, help="备份目录（留空则自动备份）")
 
-        # 扫描
-        scan_group = parser.add_argument_group("扫描参数")
-        scan_group.add_argument("--keywords", type=str, help="关键词，逗号分隔（如: 出版发行,版权,侵权）")
-        scan_group.add_argument("--search-logic", choices=["AND", "OR"], help="关键词搜索逻辑")
-        scan_group.add_argument("--case-sensitive", action="store_true", default=None, help="区分大小写")
-        scan_group.add_argument("--pages-to-check", type=str, help="检查页面范围（如: 2,-1 或 2:5）")
-        scan_group.add_argument("--no-remove-copyright", action="store_true", default=None, help="不删除版权页")
-        scan_group.add_argument("--no-remove-blank", action="store_true", default=None, help="不删除空白页")
-        scan_group.add_argument("--debug", action="store_true", default=None, help="调试模式")
+        # 关键词
+        kw_group = parser.add_argument_group("关键词配置")
+        kw_group.add_argument("--keywords", type=str, help="关键词，逗号分隔（如: 出版发行,版权,侵权）")
+        kw_group.add_argument("--search-logic", choices=["AND", "OR"], help="关键词搜索逻辑")
+        kw_group.add_argument("--case-sensitive", action="store_true", default=None, help="区分大小写")
+        kw_group.add_argument("--pages-to-check", type=str, help="检查页面范围（如: 2,-1 或 2:5）")
+        kw_group.add_argument("--detect-only", action="store_true", help="仅检测不删除")
+        kw_group.add_argument("--debug", action="store_true", default=None, help="调试模式")
 
         # OCR
         ocr_group = parser.add_argument_group("OCR 配置")
@@ -145,6 +139,9 @@ class PdfScanCommand(BaseCommand):
         # 加载配置
         config = AppConfig()
         config = self._apply_cli_args(config, args)
+
+        # 强制关闭空白页删除（此命令仅处理关键词页面）
+        config.remove_blank_pages = False
 
         # 日志级别
         if args.verbose:
@@ -179,8 +176,9 @@ class PdfScanCommand(BaseCommand):
             return
 
         # 打印配置摘要
+        action = "仅检测" if config.remove_copyright_pages is False else "检测并删除"
         print(f"\n{'─' * 50}")
-        print(f"  PDF 版权页扫描工具")
+        print(f"  PDF 关键词页面扫描工具")
         print(f"{'─' * 50}")
         print(f"  源目录:    {config.source_dir}")
         print(f"  备份目录:  {config.backup_dir or '(自动)'}")
@@ -188,8 +186,7 @@ class PdfScanCommand(BaseCommand):
         print(f"  搜索逻辑:  {config.search_logic}")
         print(f"  检查页面:  {config.pages_to_check}")
         print(f"  OCR 模式:  {config.recognition_mode}")
-        print(f"  删除版权页: {'是' if config.remove_copyright_pages else '否'}")
-        print(f"  删除空白页: {'是' if config.remove_blank_pages else '否'}")
+        print(f"  操作模式:  {action}")
         print(f"  文件并发:  {config.max_workers}")
         print(f"  OCR 并发:  {config.ocr_max_workers}")
         print(f"{'─' * 50}\n")
@@ -245,8 +242,7 @@ class PdfScanCommand(BaseCommand):
 
         _FLAG_MAP = {
             "case_sensitive": ("case_sensitive", True),
-            "no_remove_copyright": ("remove_copyright_pages", False),
-            "no_remove_blank": ("remove_blank_pages", False),
+            "detect_only": ("remove_copyright_pages", False),
             "debug": ("debug_mode", True),
             "no_filter_spaces": ("filter_spaces", False),
             "no_fuzzy_match": ("fuzzy_match", False),
