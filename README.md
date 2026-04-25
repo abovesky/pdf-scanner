@@ -42,16 +42,19 @@ python main.py <子命令> --help       # 查看子命令详细用法
 python main.py pdf-keyword
 
 # 指定源目录和关键词
-python main.py pdf-keyword --source-dir ./pdfs --keywords "出版发行,版权"
+python main.py pdf-keyword --source ./pdfs --keywords "出版发行,版权"
+
+# 处理单个文件
+python main.py pdf-keyword --source ./doc.pdf --keywords "版权"
 
 # 仅检测不删除
-python main.py pdf-keyword --source-dir ./pdfs --keywords "版权" --dry-run
+python main.py pdf-keyword --source ./pdfs --keywords "版权" --dry-run
 
 # 使用火山引擎 OCR
-python main.py pdf-keyword --source-dir ./pdfs --ocr-mode volc
+python main.py pdf-keyword --source ./pdfs --ocr-mode volc
 
 # 保存当前参数到配置文件
-python main.py pdf-keyword --source-dir ./pdfs --save-config
+python main.py pdf-keyword --source ./pdfs --save-config
 
 # 重置扫描进度
 python main.py pdf-keyword --reset-progress
@@ -75,16 +78,19 @@ BAIDU_SECRET_KEY=your_secret
 
 ```bash
 # 删除空白页
-python main.py pdf-blank --source-dir ./pdfs
+python main.py pdf-blank --source ./pdfs
+
+# 处理单个文件
+python main.py pdf-blank --source ./doc.pdf
 
 # 预览模式（不实际删除）
-python main.py pdf-blank --source-dir ./pdfs --dry-run
+python main.py pdf-blank --source ./pdfs --dry-run
 
 # 调整空白页判定阈值（默认 10，值越大判定越严格）
-python main.py pdf-blank --source-dir ./pdfs --min-text-length 20
+python main.py pdf-blank --source ./pdfs --min-text-length 20
 
 # 递归扫描子目录
-python main.py pdf-blank --source-dir ./pdfs --recursive
+python main.py pdf-blank --source ./pdfs --recursive
 ```
 
 ### rename — 文件批量重命名

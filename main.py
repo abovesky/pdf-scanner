@@ -24,8 +24,10 @@ def build_parser() -> argparse.ArgumentParser:
 使用 'python main.py <子命令> --help' 查看子命令详细用法
 
 示例:
-  python main.py pdf-keyword --source-dir ./pdfs --keywords "版权"
-  python main.py pdf-blank --source-dir ./pdfs --dry-run
+  python main.py pdf-keyword --source ./pdfs --keywords "版权"
+  python main.py pdf-keyword --source ./doc.pdf --keywords "版权"
+  python main.py pdf-blank --source ./pdfs --dry-run
+  python main.py pdf-blank --source ./doc.pdf
   python main.py rename ./pics/*.jpg --pattern "IMG_{seq:03d}" --dry-run
 """,
     )

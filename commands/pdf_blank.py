@@ -17,9 +17,9 @@ class PdfBlankCommand(BaseCommand):
     description = "扫描 PDF 文件，查找并删除空白页（仅基于文本分析，无需 OCR）"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        # 目录
-        dir_group = parser.add_argument_group("目录配置")
-        dir_group.add_argument("--source-dir", type=str, required=True, help="源目录（包含 PDF 文件）")
+        # 源路径
+        dir_group = parser.add_argument_group("路径配置")
+        dir_group.add_argument("--source", type=str, required=True, help="源路径（PDF 文件或目录）")
 
         # 扫描参数
         scan_group = parser.add_argument_group("扫描参数")
@@ -33,17 +33,21 @@ class PdfBlankCommand(BaseCommand):
         parser.add_argument("--dry-run", "-n", action="store_true", help="预览模式，只显示结果不实际删除")
 
     def execute(self, args: argparse.Namespace) -> None:
-        source = Path(args.source_dir)
+        source = Path(args.source)
         if not source.exists():
-            print(f"  错误: 源目录不存在: {source}")
+            print(f"  错误: 路径不存在: {source}")
             return
 
         # 收集文件
-        if args.recursive:
-            files = sorted(source.rglob("*.pdf"))
+        if source.is_file():
+            if source.suffix.lower() != ".pdf":
+                print(f"  错误: 不是 PDF 文件: {source}")
+                return
+            files = [source]
+        elif args.recursive:
+            files = sorted(f for f in source.rglob("*.pdf") if f.is_file())
         else:
-            files = sorted(source.glob("*.pdf"))
-        files = [f for f in files if f.is_file()]
+            files = sorted(f for f in source.glob("*.pdf") if f.is_file())
 
         if not files:
             print("  没有找到 PDF 文件。")

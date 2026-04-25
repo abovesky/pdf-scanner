@@ -18,6 +18,8 @@ class AppConfig:
     def __init__(self):
         # 目录配置
         self.source_dir: Path = Path(".")
+        self.source_path: Path | None = None  # 命令行指定的源路径（文件或目录）
+        self.source_files: list[Path] | None = None  # 指定的单文件列表（覆盖 glob 扫描）
 
         # 扫描参数
         self.keywords: list[str] = _DEFAULT_KEYWORDS.copy()

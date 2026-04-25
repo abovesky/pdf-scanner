@@ -118,6 +118,12 @@ class PDFScanner:
     def get_pdf_files(self) -> list[Path]:
         scanned = self.progress_data.scanned_files
         try:
+            # 如果指定了单文件列表，直接使用
+            if self.config.source_files:
+                return [
+                    fp for fp in self.config.source_files
+                    if fp.is_file() and str(fp.relative_to(self.config.source_dir)) not in scanned
+                ]
             return [
                 fp
                 for fp in self.config.source_dir.glob("*.pdf")

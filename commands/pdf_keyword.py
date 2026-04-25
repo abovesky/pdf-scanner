@@ -79,9 +79,9 @@ class PdfKeywordCommand(BaseCommand):
         self._log_level = 0
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        # 目录
-        dir_group = parser.add_argument_group("目录配置")
-        dir_group.add_argument("--source-dir", type=str, help="源目录（包含 PDF 文件）")
+        # 源路径
+        dir_group = parser.add_argument_group("路径配置")
+        dir_group.add_argument("--source", type=str, help="源路径（PDF 文件或目录）")
 
         # 关键词
         kw_group = parser.add_argument_group("关键词配置")
@@ -135,8 +135,20 @@ class PdfKeywordCommand(BaseCommand):
         config = AppConfig()
         config = self._apply_cli_args(config, args)
 
-        # 强制关闭删除（此命令由 dry-run 控制）
-        # （remove_matched_pages 默认 True，dry-run 时设为 False）
+        # 处理 source 路径（支持单文件和目录）
+        source_path = config.source_path if hasattr(config, "source_path") and config.source_path else config.source_dir
+        if source_path.is_file():
+            if source_path.suffix.lower() != ".pdf":
+                print(f"  错误: 不是 PDF 文件: {source_path}")
+                return
+            config.source_dir = source_path.parent
+            config.source_files = [source_path]
+        elif source_path.is_dir():
+            config.source_dir = source_path
+            config.source_files = None
+        else:
+            print(f"  错误: 路径不存在: {source_path}")
+            return
 
         # 日志级别
         if args.verbose:
@@ -175,7 +187,7 @@ class PdfKeywordCommand(BaseCommand):
         print(f"\n{'─' * 50}")
         print(f"  PDF 关键词页面扫描工具")
         print(f"{'─' * 50}")
-        print(f"  源目录:    {config.source_dir}")
+        print(f"  源路径:    {source_path}")
         print(f"  关键词:    {', '.join(config.keywords)}")
         print(f"  搜索逻辑:  {config.search_logic}")
         print(f"  检查页面:  {config.pages_to_check}")
@@ -214,7 +226,7 @@ class PdfKeywordCommand(BaseCommand):
     @staticmethod
     def _apply_cli_args(config: AppConfig, args: argparse.Namespace) -> AppConfig:
         _SIMPLE_MAP = {
-            "source_dir": ("source_dir", lambda v: Path(v)),
+            "source": ("source_path", lambda v: Path(v)),
             "search_logic": ("search_logic", None),
             "pages_to_check": ("pages_to_check", None),
             "ocr_mode": ("recognition_mode", None),
