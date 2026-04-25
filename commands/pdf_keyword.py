@@ -34,6 +34,20 @@ def _pad(s: str, width: int) -> str:
     return s + " " * (width - _display_width(s))
 
 
+def _truncate_by_width(s: str, max_width: int) -> str:
+    """按显示宽度截断字符串，超出部分以 .. 结尾"""
+    width = 0
+    result = []
+    for char in s:
+        char_width = 2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
+        if width + char_width > max_width - 2:
+            result.append("..")
+            break
+        result.append(char)
+        width += char_width
+    return "".join(result)
+
+
 def print_results(results: list[ScanResult]):
     if not results:
         return
@@ -54,7 +68,7 @@ def print_results(results: list[ScanResult]):
         kp = str(r.matched_pages) if r.matched_pages else "-"
         tp = str(r.total_pages) if r.total_pages else "-"
         et = f"{r.elapsed_seconds}s" if r.elapsed_seconds else "-"
-        name = r.file_name[:28] + ".." if len(r.file_name) > 30 else r.file_name
+        name = _truncate_by_width(r.file_name, COL_NAME)
         print(row((name, COL_NAME), (status_str, COL_STATUS), (kp, COL_KP), (tp, COL_TP), (et, COL_ET)))
 
     modified = sum(1 for r in results if r.status == FileStatus.MODIFIED)
@@ -108,7 +122,7 @@ class PdfKeywordCommand(BaseCommand):
         conc_group.add_argument("--max-workers", type=int, help="文件并发数（默认 4）")
         conc_group.add_argument("--ocr-max-workers", type=int, help="OCR 并发数（默认 2）")
 
-        # 其他
+        # 杂项
         parser.add_argument("--save-config", action="store_true", help="保存当前配置到 settings.json")
         parser.add_argument("--reset-progress", action="store_true", help="重置扫描进度（重新扫描所有文件）")
 
@@ -116,7 +130,8 @@ class PdfKeywordCommand(BaseCommand):
         level_priority = {"error": 0, "warning": 1, "info": 2, "debug": 3}
         if level_priority.get(level, 2) <= self._log_level:
             label = {"error": "错误", "warning": "警告", "info": "信息", "debug": "调试"}.get(level, level)
-            print(f"  [{label}] {msg}")
+            with self._print_lock:
+                print(f"  [{label}] {msg}")
 
     def _result_handler(self, result: ScanResult):
         with self._print_lock:
@@ -137,7 +152,7 @@ class PdfKeywordCommand(BaseCommand):
         config = self._apply_cli_args(config, args)
 
         # 处理 source 路径（支持单文件和目录）
-        source_path = config.source_path if hasattr(config, "source_path") and config.source_path else config.source_dir
+        source_path = config.source_path or config.source_dir
         if source_path.is_file():
             if source_path.suffix.lower() != ".pdf":
                 print(f"  错误: 不是 PDF 文件: {source_path}")
@@ -168,13 +183,6 @@ class PdfKeywordCommand(BaseCommand):
                 print(f"保存配置失败: {e}")
             return
 
-        # 重置进度
-        if args.reset_progress:
-            progress_file = config.get_resume_file_path()
-            if progress_file.exists():
-                progress_file.unlink()
-                print("已重置扫描进度")
-
         # 验证配置
         errors = config.validate()
         if errors:
@@ -182,6 +190,13 @@ class PdfKeywordCommand(BaseCommand):
             for e in errors:
                 print(f"  - {e}")
             return
+
+        # 重置进度（在配置验证通过后执行）
+        if args.reset_progress:
+            progress_file = config.get_resume_file_path()
+            if progress_file.exists():
+                progress_file.unlink()
+                print("已重置扫描进度")
 
         # 打印配置摘要
         action = "仅检测" if config.dry_run else "检测并删除"
@@ -212,9 +227,11 @@ class PdfKeywordCommand(BaseCommand):
         scanner.log_callback = self._log_handler
         scanner.result_callback = self._result_handler
 
-        # 初始化计数
+        # 预计算文件列表，避免 get_pdf_files() 二次扫描产生不一致
+        pdf_files = scanner.get_pdf_files()
         self._completed = 0
-        self._total = len(scanner.get_pdf_files())
+        self._total = len(pdf_files)
+        config.source_files = pdf_files
 
         if self._total == 0:
             print("  没有发现新的未处理 PDF 文件。\n")
@@ -240,10 +257,10 @@ class PdfKeywordCommand(BaseCommand):
         }
         for arg_name, (attr, transform) in _SIMPLE_MAP.items():
             val = getattr(args, arg_name, None)
-            if val:
+            if val is not None:
                 setattr(config, attr, transform(val) if transform else val)
 
-        if args.keywords:
+        if args.keywords is not None:
             config.keywords = [k.strip() for k in args.keywords.split(",") if k.strip()]
 
         _FLAG_MAP = {

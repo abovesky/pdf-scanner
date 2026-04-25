@@ -19,6 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
 可用子命令:
   pdf-keyword   删除 PDF 中包含指定关键词的页面
   pdf-blank     删除 PDF 空白页
+  pdf-decrypt   清除 PDF 密码保护
   rename        文件批量重命名
 
 使用 'python main.py <子命令> --help' 查看子命令详细用法
@@ -28,6 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
   python main.py pdf-keyword --source ./doc.pdf --keywords "版权"
   python main.py pdf-blank --source ./pdfs --dry-run
   python main.py pdf-blank --source ./doc.pdf
+  python main.py pdf-decrypt --source ./doc.pdf --password 123456
+  python main.py pdf-decrypt --source ./pdfs --recursive
   python main.py rename ./pics/*.jpg --pattern "IMG_{seq:03d}" --dry-run
 """,
     )

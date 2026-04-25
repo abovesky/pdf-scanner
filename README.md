@@ -93,6 +93,33 @@ python main.py pdf-blank --source ./pdfs --min-text-length 20
 python main.py pdf-blank --source ./pdfs --recursive
 ```
 
+### pdf-decrypt — 清除 PDF 密码保护
+
+移除 PDF 文件的密码保护，保存为无密码的 PDF。
+
+```bash
+# 清除单文件密码（无密码或已知密码）
+python main.py pdf-decrypt --source ./doc.pdf
+
+# 指定密码
+python main.py pdf-decrypt --source ./doc.pdf --password 123456
+
+# 指定输出路径（仅单文件时有效）
+python main.py pdf-decrypt --source ./doc.pdf --output ./unlocked.pdf
+
+# 批量处理目录下所有加密 PDF
+python main.py pdf-decrypt --source ./pdfs
+
+# 递归扫描子目录
+python main.py pdf-decrypt --source ./pdfs --recursive
+
+# 预览模式（只显示哪些文件加密，不实际操作）
+python main.py pdf-decrypt --source ./pdfs --dry-run
+
+# 不创建备份文件
+python main.py pdf-decrypt --source ./doc.pdf --no-backup
+```
+
 ### rename — 文件批量重命名
 
 支持序号格式化、查找替换、正则匹配，内置预览模式。
@@ -133,6 +160,7 @@ python main.py rename ./mixed/ --replace "old>new" --include-ext jpg,png
 │   ├── __init__.py         # 命令基类与自动注册
 │   ├── pdf_keyword.py      # 删除含关键词页面命令
 │   ├── pdf_blank.py        # 删除空白页命令
+│   ├── pdf_decrypt.py      # 清除密码保护命令
 │   └── rename.py           # 文件批量重命名命令
 └── core/                   # 核心功能模块
     ├── __init__.py

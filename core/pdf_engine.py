@@ -211,6 +211,92 @@ class PDFEngine:
 
         return blank_pages
 
+    @staticmethod
+    def _has_encrypt_entry(pdf_path: Path) -> bool:
+        """
+        扫描 PDF 文件尾部检查是否存在 /Encrypt 字典。
+        PyMuPDF 的 doc.is_encrypted 在打开仅设所有者密码的 PDF 时
+        可能返回 False（因自动空密码认证），需要原始文件级兜底检测。
+        """
+        try:
+            file_size = pdf_path.stat().st_size
+            # trailer 通常在文件末尾 4KB 内
+            read_size = min(file_size, 4096)
+            with open(pdf_path, "rb") as f:
+                f.seek(file_size - read_size)
+                tail = f.read()
+            return b"/Encrypt" in tail
+        except Exception:
+            return False
+
+    def is_encrypted(self, pdf_path: Path) -> bool:
+        """检查 PDF 是否有密码保护"""
+        import fitz
+        with fitz.open(str(pdf_path)) as doc:
+            if doc.is_encrypted:
+                return True
+        # 兜底：PyMuPDF 自动认证后 is_encrypted 可能为 False，
+        # 但文件仍含 /Encrypt 字典（如仅设权限密码的 PDF）
+        return self._has_encrypt_entry(pdf_path)
+
+    def remove_password(
+        self,
+        pdf_path: Path,
+        password: str = "",
+        output_path: Path | None = None,
+        backup: bool = True,
+    ) -> tuple[bool, str]:
+        """
+        清除 PDF 密码保护
+        password: 用户密码（空字符串适用于仅需所有者密码的文件）
+        output_path: 输出路径，默认覆盖原文件
+        backup: 覆盖时是否创建 .bak 备份
+        返回 (是否成功, 消息)
+        """
+        import fitz
+        import tempfile
+
+        save_path = output_path or pdf_path
+
+        try:
+            with fitz.open(str(pdf_path)) as doc:
+                has_encrypt = self._has_encrypt_entry(pdf_path)
+
+                if not has_encrypt and not doc.is_encrypted:
+                    return False, "文件未加密"
+
+                if doc.is_encrypted:
+                    if not doc.authenticate(password):
+                        return False, "密码错误，无法解密"
+                else:
+                    # 文件有 /Encrypt 但 PyMuPDF 已自动认证，
+                    # 仍需调用 authenticate 确保 save 时移除加密
+                    doc.authenticate(password)
+
+                # 备份原文件
+                if backup and save_path == pdf_path:
+                    backup_path = pdf_path.with_suffix(".pdf.bak")
+                    try:
+                        shutil.copy2(str(pdf_path), str(backup_path))
+                        logger.info(f"已创建备份: {backup_path.name}")
+                    except Exception as e:
+                        logger.warning(f"创建备份失败: {e}")
+
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+
+                if save_path == pdf_path:
+                    fd, tmp_path = tempfile.mkstemp(suffix=".pdf", dir=str(pdf_path.parent))
+                    os.close(fd)
+                    doc.save(tmp_path, garbage=4, deflate=True)
+                    shutil.move(tmp_path, str(save_path))
+                else:
+                    doc.save(str(save_path), garbage=4, deflate=True)
+
+            return True, "密码已清除"
+        except Exception as e:
+            logger.error(f"清除密码失败: {e}")
+            return False, str(e)
+
     def remove_blank_pages(
         self,
         pdf_path: Path,
