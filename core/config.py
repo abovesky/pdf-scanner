@@ -26,14 +26,14 @@ class AppConfig:
         self.search_logic: Literal["AND", "OR"] = "AND"
         self.case_sensitive: bool = False
         self.pages_to_check: str = "-1"
-        self.remove_matched_pages: bool = True
+        self.dry_run: bool = False
         self.debug_mode: bool = False
 
         # OCR 配置
         self.recognition_mode: str = "baidu"
         self.ocr_accuracy: str = "accurate_basic"
         self.ocr_lang: str = "chi_sim"
-        self.dpi: int = 300
+        self.dpi: int = 150
         self.filter_spaces: bool = True
         self.fuzzy_match: bool = True
         self.max_interfering_chars: int = 2
@@ -104,7 +104,6 @@ class AppConfig:
             "search_logic": self.search_logic,
             "case_sensitive": self.case_sensitive,
             "pages_to_check": self.pages_to_check,
-            "remove_matched_pages": self.remove_matched_pages,
             "debug_mode": self.debug_mode,
             "recognition_mode": self.recognition_mode,
             "ocr_accuracy": self.ocr_accuracy,
@@ -135,8 +134,6 @@ class AppConfig:
             self.case_sensitive = data["case_sensitive"]
         if "pages_to_check" in data:
             self.pages_to_check = data["pages_to_check"]
-        if "remove_matched_pages" in data:
-            self.remove_matched_pages = data["remove_matched_pages"]
         if "debug_mode" in data:
             self.debug_mode = data["debug_mode"]
         if "recognition_mode" in data:

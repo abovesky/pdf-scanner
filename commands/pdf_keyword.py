@@ -89,15 +89,16 @@ class PdfKeywordCommand(BaseCommand):
         kw_group.add_argument("--search-logic", choices=["AND", "OR"], help="关键词搜索逻辑")
         kw_group.add_argument("--case-sensitive", action="store_true", default=None, help="区分大小写")
         kw_group.add_argument("--pages-to-check", type=str, help="检查页面范围（如: 2,-1 或 2:5）")
-        kw_group.add_argument("--dry-run", "-n", action="store_true", help="预览模式，只显示结果不实际删除")
-        kw_group.add_argument("--debug", action="store_true", default=None, help="调试模式")
+
+        parser.add_argument("--dry-run", "-n", action="store_true", help="预览模式，只显示结果不实际删除")
+        parser.add_argument("--debug", action="store_true", default=None, help="调试模式")
 
         # OCR
         ocr_group = parser.add_argument_group("OCR 配置")
         ocr_group.add_argument("--ocr-mode", choices=["local", "baidu", "volc", "iflytek"], help="OCR 识别模式")
         ocr_group.add_argument("--ocr-accuracy", choices=["general_basic", "accurate_basic", "general", "accurate"], help="OCR 识别精度")
         ocr_group.add_argument("--ocr-lang", type=str, help="OCR 语言（如: chi_sim, eng）")
-        ocr_group.add_argument("--dpi", type=int, help="渲染 DPI（默认 300）")
+        ocr_group.add_argument("--dpi", type=int, help="渲染 DPI（默认 150）")
         ocr_group.add_argument("--no-filter-spaces", action="store_true", default=None, help="不过滤空格")
         ocr_group.add_argument("--no-fuzzy-match", action="store_true", default=None, help="禁用模糊匹配")
         ocr_group.add_argument("--max-interfering-chars", type=int, help="模糊匹配允许的最大干扰字符数")
@@ -183,7 +184,7 @@ class PdfKeywordCommand(BaseCommand):
             return
 
         # 打印配置摘要
-        action = "仅检测" if config.remove_matched_pages is False else "检测并删除"
+        action = "仅检测" if config.dry_run else "检测并删除"
         print(f"\n{'─' * 50}")
         print(f"  PDF 关键词页面扫描工具")
         print(f"{'─' * 50}")
@@ -247,7 +248,7 @@ class PdfKeywordCommand(BaseCommand):
 
         _FLAG_MAP = {
             "case_sensitive": ("case_sensitive", True),
-            "dry_run": ("remove_matched_pages", False),
+            "dry_run": ("dry_run", True),
             "debug": ("debug_mode", True),
             "no_filter_spaces": ("filter_spaces", False),
             "no_fuzzy_match": ("fuzzy_match", False),

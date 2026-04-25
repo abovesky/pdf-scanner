@@ -8,7 +8,6 @@
   "search_logic": "AND",
   "case_sensitive": false,
   "pages_to_check": "-1",
-  "remove_matched_pages": true,
   "debug_mode": false,
   "recognition_mode": "baidu",
   "ocr_accuracy": "accurate_basic",

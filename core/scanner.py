@@ -302,7 +302,7 @@ class PDFScanner:
             self._log("info", f"  -> 发现匹配页面: {matched_pages}")
 
             # 删除匹配页
-            if self.config.remove_matched_pages:
+            if not self.config.dry_run:
                 success = self.pdf_engine.delete_pages(pdf_path, matched_pages)
                 if success:
                     file_modified = True
