@@ -113,14 +113,27 @@ class PDFEngine:
         pdf_path: Path,
         page_nums: list[int],
         output_path: Path | None = None,
+        backup: bool = True,
     ) -> bool:
         """
         删除指定页面
         page_nums: 1-based 页码列表
         output_path: 如果指定，输出到新路径；否则覆盖原文件
+        backup: 覆盖原文件时是否创建 .bak 备份
         """
         import fitz
         import tempfile
+
+        save_path = output_path or pdf_path
+
+        # 备份原文件
+        if backup and save_path == pdf_path:
+            backup_path = pdf_path.with_suffix(".pdf.bak")
+            try:
+                shutil.copy2(str(pdf_path), str(backup_path))
+                logger.info(f"已创建备份: {backup_path.name}")
+            except Exception as e:
+                logger.warning(f"创建备份失败: {e}")
 
         try:
             with fitz.open(str(pdf_path)) as doc:
@@ -132,7 +145,6 @@ class PDFEngine:
                 for idx in indices:
                     doc.delete_page(idx)
 
-                save_path = output_path or pdf_path
                 save_path.parent.mkdir(parents=True, exist_ok=True)
 
                 # Windows 上直接保存到同一文件可能因句柄占用失败，先写临时文件再替换
@@ -149,14 +161,22 @@ class PDFEngine:
             logger.error(f"删除页面失败: {e}")
             return False
 
+    def _page_has_visual_content(self, page) -> bool:
+        """检查页面是否包含图像或矢量图（用于扫描页保护）"""
+        return bool(page.get_images()) or bool(page.get_drawings())
+
     def find_blank_pages(self, pdf_path: Path, min_text_length: int = 10) -> list[int]:
         """
         查找所有空白页的页码（1-based）
+        对扫描版/图片型 PDF 有保护机制：若页面含图像/矢量图但文本极少，将保守保留
         """
         import fitz
 
         blank_pages = []
-        page_number_pattern = re.compile(r"^[\s\-–—]*\d+[\s\-–—]*$")
+        # 支持阿拉伯数字、罗马数字、字母页码（如 5, iv, A-1, B）
+        page_number_pattern = re.compile(
+            r"^[\s\-–—]*(?:\d+|[ivxlcdmIVXLCDM]+|[a-zA-Z](?:[-–—]?\d*)?)[\s\-–—]*$"
+        )
 
         with fitz.open(str(pdf_path)) as doc:
             for i in range(len(doc)):
@@ -164,15 +184,24 @@ class PDFEngine:
                 text = page.get_text()
 
                 if not text:
+                    if self._page_has_visual_content(page):
+                        logger.debug(f"第{i + 1}页无文本但含图像/矢量图，视为扫描页保留")
+                        continue
                     blank_pages.append(i + 1)
                     continue
 
                 text_stripped = text.strip()
                 if not text_stripped:
+                    if self._page_has_visual_content(page):
+                        logger.debug(f"第{i + 1}页文本为空但含图像/矢量图，视为扫描页保留")
+                        continue
                     blank_pages.append(i + 1)
                     continue
 
                 if len(text_stripped) < min_text_length:
+                    if self._page_has_visual_content(page):
+                        logger.debug(f"第{i + 1}页文本短但含图像/矢量图，保守保留")
+                        continue
                     blank_pages.append(i + 1)
                     continue
 
@@ -187,6 +216,7 @@ class PDFEngine:
         pdf_path: Path,
         output_path: Path | None = None,
         min_text_length: int = 10,
+        backup: bool = True,
     ) -> tuple[bool, list[int]]:
         """
         删除所有空白页
@@ -196,5 +226,5 @@ class PDFEngine:
         if not blank_pages:
             return False, []
 
-        success = self.delete_pages(pdf_path, blank_pages, output_path)
+        success = self.delete_pages(pdf_path, blank_pages, output_path, backup=backup)
         return success, blank_pages

@@ -24,13 +24,14 @@ class PdfBlankCommand(BaseCommand):
         # 扫描参数
         scan_group = parser.add_argument_group("扫描参数")
         scan_group.add_argument(
-            "--min-text-length", type=int, default=10,
-            help="空白页最小文本长度阈值，低于此值视为空白页（默认 10）",
+            "--min-text-length", type=int, default=30,
+            help="内容页最小字符数阈值，低于此值视为空白页（默认 30）",
         )
         scan_group.add_argument("--recursive", action="store_true", help="递归扫描子目录")
 
         # 执行选项
         parser.add_argument("--dry-run", "-n", action="store_true", help="预览模式，只显示结果不实际删除")
+        parser.add_argument("--no-backup", action="store_true", help="覆盖原文件时不创建 .bak 备份")
 
     def execute(self, args: argparse.Namespace) -> None:
         source = Path(args.source)
@@ -70,7 +71,7 @@ class PdfBlankCommand(BaseCommand):
                         print(f"  [{i}/{len(files)}] {pdf_path.name} | 空白页: {blank_pages} (预览)")
                     else:
                         # 删除空白页
-                        success = engine.delete_pages(pdf_path, blank_pages)
+                        success = engine.delete_pages(pdf_path, blank_pages, backup=not args.no_backup)
                         if success:
                             print(f"  [{i}/{len(files)}] {pdf_path.name} | 空白页: {blank_pages} -> 已删除")
                         else:
