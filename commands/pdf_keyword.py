@@ -135,8 +135,8 @@ class PdfKeywordCommand(BaseCommand):
         config = AppConfig()
         config = self._apply_cli_args(config, args)
 
-        # 强制关闭空白页删除（此命令仅处理关键词页面）
-        config.remove_blank_pages = False
+        # 强制关闭删除（此命令由 dry-run 控制）
+        # （remove_matched_pages 默认 True，dry-run 时设为 False）
 
         # 日志级别
         if args.verbose:
@@ -171,7 +171,7 @@ class PdfKeywordCommand(BaseCommand):
             return
 
         # 打印配置摘要
-        action = "仅检测" if config.remove_copyright_pages is False else "检测并删除"
+        action = "仅检测" if config.remove_matched_pages is False else "检测并删除"
         print(f"\n{'─' * 50}")
         print(f"  PDF 关键词页面扫描工具")
         print(f"{'─' * 50}")
@@ -235,7 +235,7 @@ class PdfKeywordCommand(BaseCommand):
 
         _FLAG_MAP = {
             "case_sensitive": ("case_sensitive", True),
-            "dry_run": ("remove_copyright_pages", False),
+            "dry_run": ("remove_matched_pages", False),
             "debug": ("debug_mode", True),
             "no_filter_spaces": ("filter_spaces", False),
             "no_fuzzy_match": ("fuzzy_match", False),

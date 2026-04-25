@@ -24,7 +24,6 @@ class ScanResult:
     file_path: Path
     status: FileStatus
     matched_pages: list[int] = field(default_factory=list)
-    blank_pages_removed: int = 0
     total_pages: int = 0
     message: str = ""
     elapsed_seconds: float = 0.0

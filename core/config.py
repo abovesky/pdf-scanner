@@ -24,8 +24,7 @@ class AppConfig:
         self.search_logic: Literal["AND", "OR"] = "AND"
         self.case_sensitive: bool = False
         self.pages_to_check: str = "-1"
-        self.remove_copyright_pages: bool = True
-        self.remove_blank_pages: bool = True
+        self.remove_matched_pages: bool = True
         self.debug_mode: bool = False
 
         # OCR 配置
@@ -103,8 +102,7 @@ class AppConfig:
             "search_logic": self.search_logic,
             "case_sensitive": self.case_sensitive,
             "pages_to_check": self.pages_to_check,
-            "remove_copyright_pages": self.remove_copyright_pages,
-            "remove_blank_pages": self.remove_blank_pages,
+            "remove_matched_pages": self.remove_matched_pages,
             "debug_mode": self.debug_mode,
             "recognition_mode": self.recognition_mode,
             "ocr_accuracy": self.ocr_accuracy,
@@ -135,10 +133,8 @@ class AppConfig:
             self.case_sensitive = data["case_sensitive"]
         if "pages_to_check" in data:
             self.pages_to_check = data["pages_to_check"]
-        if "remove_copyright_pages" in data:
-            self.remove_copyright_pages = data["remove_copyright_pages"]
-        if "remove_blank_pages" in data:
-            self.remove_blank_pages = data["remove_blank_pages"]
+        if "remove_matched_pages" in data:
+            self.remove_matched_pages = data["remove_matched_pages"]
         if "debug_mode" in data:
             self.debug_mode = data["debug_mode"]
         if "recognition_mode" in data:

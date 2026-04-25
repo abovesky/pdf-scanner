@@ -15,7 +15,7 @@ from typing import Callable
 
 from .config import AppConfig
 from .models import FileStatus, ScanProgress, ScanResult
-from .ocr_engines import OCREngine, OCREngineFactory, OCRConfig
+from .ocr_engines import OCREngineFactory, OCRConfig
 from .pdf_engine import PDFEngine, parse_pages_to_check
 
 logger = logging.getLogger("pdf_scanner")
@@ -29,13 +29,11 @@ class PDFScanner:
         config: AppConfig,
         pdf_engine: PDFEngine | None = None,
         ocr_engine: OCREngine | None = None,
-        pause_event: threading.Event | None = None,
         cancel_event: threading.Event | None = None,
     ):
         self.config = config
         self.pdf_engine = pdf_engine or PDFEngine()
         self.ocr_engine = ocr_engine
-        self.pause_event = pause_event
         self.cancel_event = cancel_event
 
         # 回调函数（供 GUI 调用）
@@ -77,17 +75,10 @@ class PDFScanner:
         if self.result_callback:
             self.result_callback(result)
 
-    def _check_pause_cancel(self) -> bool:
-        """检查暂停和取消信号，返回 True 表示已取消"""
+    def _check_cancel(self) -> bool:
+        """检查取消信号，返回 True 表示已取消"""
         if self.cancel_event and self.cancel_event.is_set():
             return True
-        if self.pause_event and self.pause_event.is_set():
-            self._log("info", "扫描已暂停，等待继续...")
-            while self.pause_event.is_set():
-                if self.cancel_event and self.cancel_event.is_set():
-                    return True
-                time.sleep(0.2)
-            self._log("info", "扫描继续")
         return False
 
     def _load_progress(self) -> ScanProgress:
@@ -218,7 +209,7 @@ class PDFScanner:
         start_time = time.time()
         self._log("info", f"\n[{pdf_path.name}] 开始处理...")
 
-        if self._check_pause_cancel():
+        if self._check_cancel():
             return ScanResult(
                 file_name=pdf_path.name,
                 file_path=pdf_path,
@@ -273,7 +264,7 @@ class PDFScanner:
                     for page_num, img in images
                 }
                 for future in as_completed(futures):
-                    if self._check_pause_cancel():
+                    if self._check_cancel():
                         for f in futures:
                             f.cancel()
                         return ScanResult(
@@ -287,7 +278,7 @@ class PDFScanner:
                         matched_pages.append(page_num)
         else:
             for page_num, img in images:
-                if self._check_pause_cancel():
+                if self._check_cancel():
                     return ScanResult(
                         file_name=pdf_path.name,
                         file_path=pdf_path,
@@ -300,13 +291,12 @@ class PDFScanner:
 
         # 处理结果
         file_modified = False
-        blank_pages_removed = 0
 
         if matched_pages:
             self._log("info", f"  -> 发现匹配页面: {matched_pages}")
 
             # 删除匹配页
-            if self.config.remove_copyright_pages:
+            if self.config.remove_matched_pages:
                 success = self.pdf_engine.delete_pages(pdf_path, matched_pages)
                 if success:
                     file_modified = True
@@ -314,23 +304,14 @@ class PDFScanner:
                 else:
                     self._log("warning", f"  删除匹配页失败")
 
-            # 删除空白页
-            if self.config.remove_blank_pages:
-                success, blank_pages = self.pdf_engine.remove_blank_pages(pdf_path)
-                if success:
-                    file_modified = True
-                    blank_pages_removed = len(blank_pages)
-                    self._log("info", f"  已删除空白页: {blank_pages}")
-
             self._mark_processed(pdf_path, file_modified)
             result = ScanResult(
                 file_name=pdf_path.name,
                 file_path=pdf_path,
                 status=FileStatus.MODIFIED if file_modified else FileStatus.UNMODIFIED,
                 matched_pages=matched_pages,
-                blank_pages_removed=blank_pages_removed,
                 total_pages=total_pages,
-                message=f"删除匹配页 {matched_pages}, 空白页 {blank_pages_removed} 个",
+                message=f"删除匹配页 {matched_pages}" if file_modified else "未删除",
                 elapsed_seconds=round(time.time() - start_time, 2),
             )
             self._emit_result(result)
@@ -338,25 +319,13 @@ class PDFScanner:
 
         else:
             self._log("info", f"  -> 未找到匹配页面")
-
-            # 检查并删除空白页
-            if self.config.remove_blank_pages:
-                has_blank = self.pdf_engine.find_blank_pages(pdf_path)
-                if has_blank:
-                    success, blank_pages = self.pdf_engine.remove_blank_pages(pdf_path)
-                    if success:
-                        file_modified = True
-                        blank_pages_removed = len(blank_pages)
-                        self._log("info", f"  已删除空白页: {blank_pages}")
-
             self._mark_processed(pdf_path, file_modified)
             result = ScanResult(
                 file_name=pdf_path.name,
                 file_path=pdf_path,
-                status=FileStatus.MODIFIED if file_modified else FileStatus.UNMODIFIED,
-                blank_pages_removed=blank_pages_removed,
+                status=FileStatus.UNMODIFIED,
                 total_pages=total_pages,
-                message=f"无匹配页，删除空白页 {blank_pages_removed} 个" if file_modified else "无匹配页且无空白页",
+                message="无匹配页",
                 elapsed_seconds=round(time.time() - start_time, 2),
             )
             self._emit_result(result)
