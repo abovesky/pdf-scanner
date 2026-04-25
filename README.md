@@ -45,7 +45,7 @@ python main.py pdf-keyword
 python main.py pdf-keyword --source-dir ./pdfs --keywords "出版发行,版权"
 
 # 仅检测不删除
-python main.py pdf-keyword --source-dir ./pdfs --keywords "版权" --detect-only
+python main.py pdf-keyword --source-dir ./pdfs --keywords "版权" --dry-run
 
 # 使用火山引擎 OCR
 python main.py pdf-keyword --source-dir ./pdfs --ocr-mode volc
@@ -79,9 +79,6 @@ python main.py pdf-blank --source-dir ./pdfs
 
 # 预览模式（不实际删除）
 python main.py pdf-blank --source-dir ./pdfs --dry-run
-
-# 指定备份目录
-python main.py pdf-blank --source-dir ./pdfs --backup-dir ./backup
 
 # 调整空白页判定阈值（默认 10，值越大判定越严格）
 python main.py pdf-blank --source-dir ./pdfs --min-text-length 20

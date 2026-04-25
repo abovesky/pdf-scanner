@@ -112,25 +112,17 @@ class PDFEngine:
         self,
         pdf_path: Path,
         page_nums: list[int],
-        backup_dir: Path | None = None,
         output_path: Path | None = None,
     ) -> bool:
         """
         删除指定页面
         page_nums: 1-based 页码列表
-        backup_dir: 如果指定，先备份原文件
         output_path: 如果指定，输出到新路径；否则覆盖原文件
         """
         import fitz
         import tempfile
 
         try:
-            if backup_dir:
-                backup_dir.mkdir(parents=True, exist_ok=True)
-                backup_path = backup_dir / pdf_path.name
-                shutil.copy2(str(pdf_path), str(backup_path))
-                logger.info(f"已备份至: {backup_path}")
-
             with fitz.open(str(pdf_path)) as doc:
                 # 转换为 0-based 并去重排序（从大到小删除避免索引偏移）
                 indices = sorted({p - 1 for p in page_nums if 1 <= p <= len(doc)}, reverse=True)
@@ -193,7 +185,6 @@ class PDFEngine:
     def remove_blank_pages(
         self,
         pdf_path: Path,
-        backup_dir: Path | None = None,
         output_path: Path | None = None,
         min_text_length: int = 10,
     ) -> tuple[bool, list[int]]:
@@ -205,5 +196,5 @@ class PDFEngine:
         if not blank_pages:
             return False, []
 
-        success = self.delete_pages(pdf_path, blank_pages, backup_dir, output_path)
+        success = self.delete_pages(pdf_path, blank_pages, output_path)
         return success, blank_pages

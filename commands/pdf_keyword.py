@@ -82,7 +82,6 @@ class PdfKeywordCommand(BaseCommand):
         # 目录
         dir_group = parser.add_argument_group("目录配置")
         dir_group.add_argument("--source-dir", type=str, help="源目录（包含 PDF 文件）")
-        dir_group.add_argument("--backup-dir", type=str, help="备份目录（留空则自动备份）")
 
         # 关键词
         kw_group = parser.add_argument_group("关键词配置")
@@ -177,7 +176,6 @@ class PdfKeywordCommand(BaseCommand):
         print(f"  PDF 关键词页面扫描工具")
         print(f"{'─' * 50}")
         print(f"  源目录:    {config.source_dir}")
-        print(f"  备份目录:  {config.backup_dir or '(自动)'}")
         print(f"  关键词:    {', '.join(config.keywords)}")
         print(f"  搜索逻辑:  {config.search_logic}")
         print(f"  检查页面:  {config.pages_to_check}")
@@ -217,7 +215,6 @@ class PdfKeywordCommand(BaseCommand):
     def _apply_cli_args(config: AppConfig, args: argparse.Namespace) -> AppConfig:
         _SIMPLE_MAP = {
             "source_dir": ("source_dir", lambda v: Path(v)),
-            "backup_dir": ("backup_dir", lambda v: Path(v)),
             "search_logic": ("search_logic", None),
             "pages_to_check": ("pages_to_check", None),
             "ocr_mode": ("recognition_mode", None),

@@ -18,7 +18,6 @@ class AppConfig:
     def __init__(self):
         # 目录配置
         self.source_dir: Path = Path(".")
-        self.backup_dir: Path | None = None
 
         # 扫描参数
         self.keywords: list[str] = _DEFAULT_KEYWORDS.copy()
@@ -100,7 +99,6 @@ class AppConfig:
         """保存当前配置到 settings.json"""
         data = {
             "source_dir": str(self.source_dir),
-            "backup_dir": str(self.backup_dir) if self.backup_dir else None,
             "keywords": self.keywords,
             "search_logic": self.search_logic,
             "case_sensitive": self.case_sensitive,
@@ -129,8 +127,6 @@ class AppConfig:
         """从字典应用配置"""
         if "source_dir" in data:
             self.source_dir = Path(data["source_dir"])
-        if "backup_dir" in data:
-            self.backup_dir = Path(data["backup_dir"]) if data["backup_dir"] else None
         if "keywords" in data:
             self.keywords = data["keywords"]
         if "search_logic" in data:

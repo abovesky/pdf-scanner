@@ -20,7 +20,6 @@ class PdfBlankCommand(BaseCommand):
         # 目录
         dir_group = parser.add_argument_group("目录配置")
         dir_group.add_argument("--source-dir", type=str, required=True, help="源目录（包含 PDF 文件）")
-        dir_group.add_argument("--backup-dir", type=str, help="备份目录（留空则不备份）")
 
         # 扫描参数
         scan_group = parser.add_argument_group("扫描参数")
@@ -38,8 +37,6 @@ class PdfBlankCommand(BaseCommand):
         if not source.exists():
             print(f"  错误: 源目录不存在: {source}")
             return
-
-        backup_dir = Path(args.backup_dir) if args.backup_dir else None
 
         # 收集文件
         if args.recursive:
@@ -68,8 +65,8 @@ class PdfBlankCommand(BaseCommand):
                     if args.dry_run:
                         print(f"  [{i}/{len(files)}] {pdf_path.name} | 空白页: {blank_pages} (预览)")
                     else:
-                        # 删除空白页（PDFEngine.delete_pages 内部处理备份）
-                        success = engine.delete_pages(pdf_path, blank_pages, backup_dir=backup_dir)
+                        # 删除空白页
+                        success = engine.delete_pages(pdf_path, blank_pages)
                         if success:
                             print(f"  [{i}/{len(files)}] {pdf_path.name} | 空白页: {blank_pages} -> 已删除")
                         else:

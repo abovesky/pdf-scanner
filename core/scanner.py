@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -77,20 +76,6 @@ class PDFScanner:
     def _emit_result(self, result: ScanResult) -> None:
         if self.result_callback:
             self.result_callback(result)
-
-    def _backup_file(self, pdf_path: Path) -> bool:
-        """备份文件，成功返回 True，失败返回 False"""
-        if not self.config.backup_dir:
-            return True
-        try:
-            self.config.backup_dir.mkdir(parents=True, exist_ok=True)
-            backup_path = self.config.backup_dir / pdf_path.name
-            shutil.copy2(str(pdf_path), str(backup_path))
-            self._log("info", f"  已备份原文件至: {backup_path}")
-            return True
-        except Exception as e:
-            self._log("warning", f"  备份失败: {e}")
-            return False
 
     def _check_pause_cancel(self) -> bool:
         """检查暂停和取消信号，返回 True 表示已取消"""
@@ -320,22 +305,9 @@ class PDFScanner:
         if matched_pages:
             self._log("info", f"  -> 发现匹配页面: {matched_pages}")
 
-            # 备份
-            if self.config.backup_dir and self.config.remove_copyright_pages:
-                if not self._backup_file(pdf_path):
-                    self._mark_processed(pdf_path, False)
-                    return ScanResult(
-                        file_name=pdf_path.name,
-                        file_path=pdf_path,
-                        status=FileStatus.FAILED,
-                        message="备份失败",
-                    )
-
             # 删除匹配页
             if self.config.remove_copyright_pages:
-                success = self.pdf_engine.delete_pages(
-                    pdf_path, matched_pages, backup_dir=None
-                )
+                success = self.pdf_engine.delete_pages(pdf_path, matched_pages)
                 if success:
                     file_modified = True
                     self._log("info", f"  已删除匹配页: {matched_pages}")
@@ -344,9 +316,7 @@ class PDFScanner:
 
             # 删除空白页
             if self.config.remove_blank_pages:
-                success, blank_pages = self.pdf_engine.remove_blank_pages(
-                    pdf_path, backup_dir=None
-                )
+                success, blank_pages = self.pdf_engine.remove_blank_pages(pdf_path)
                 if success:
                     file_modified = True
                     blank_pages_removed = len(blank_pages)
@@ -373,18 +343,7 @@ class PDFScanner:
             if self.config.remove_blank_pages:
                 has_blank = self.pdf_engine.find_blank_pages(pdf_path)
                 if has_blank:
-                    if not self._backup_file(pdf_path):
-                        self._mark_processed(pdf_path, False)
-                        return ScanResult(
-                            file_name=pdf_path.name,
-                            file_path=pdf_path,
-                            status=FileStatus.FAILED,
-                            message="备份失败",
-                        )
-
-                    success, blank_pages = self.pdf_engine.remove_blank_pages(
-                        pdf_path, backup_dir=None
-                    )
+                    success, blank_pages = self.pdf_engine.remove_blank_pages(pdf_path)
                     if success:
                         file_modified = True
                         blank_pages_removed = len(blank_pages)
