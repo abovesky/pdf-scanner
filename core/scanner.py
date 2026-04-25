@@ -280,7 +280,7 @@ class PDFScanner:
             )
 
         # OCR 检测（支持页面级并发）
-        copyright_pages = []
+        matched_pages = []
         if len(images) > 1 and self.config.ocr_max_workers > 1:
             with ThreadPoolExecutor(max_workers=self.config.ocr_max_workers) as executor:
                 futures = {
@@ -299,7 +299,7 @@ class PDFScanner:
                         )
                     page_num, matched = future.result()
                     if matched:
-                        copyright_pages.append(page_num)
+                        matched_pages.append(page_num)
         else:
             for page_num, img in images:
                 if self._check_pause_cancel():
@@ -311,14 +311,14 @@ class PDFScanner:
                     )
                 page_num, matched = self._ocr_page(page_num, img)
                 if matched:
-                    copyright_pages.append(page_num)
+                    matched_pages.append(page_num)
 
         # 处理结果
         file_modified = False
         blank_pages_removed = 0
 
-        if copyright_pages:
-            self._log("info", f"  -> 发现版权页面: {copyright_pages}")
+        if matched_pages:
+            self._log("info", f"  -> 发现匹配页面: {matched_pages}")
 
             # 备份
             if self.config.backup_dir and self.config.remove_copyright_pages:
@@ -331,16 +331,16 @@ class PDFScanner:
                         message="备份失败",
                     )
 
-            # 删除版权页
+            # 删除匹配页
             if self.config.remove_copyright_pages:
                 success = self.pdf_engine.delete_pages(
-                    pdf_path, copyright_pages, backup_dir=None
+                    pdf_path, matched_pages, backup_dir=None
                 )
                 if success:
                     file_modified = True
-                    self._log("info", f"  已删除版权页: {copyright_pages}")
+                    self._log("info", f"  已删除匹配页: {matched_pages}")
                 else:
-                    self._log("warning", f"  删除版权页失败")
+                    self._log("warning", f"  删除匹配页失败")
 
             # 删除空白页
             if self.config.remove_blank_pages:
@@ -357,17 +357,17 @@ class PDFScanner:
                 file_name=pdf_path.name,
                 file_path=pdf_path,
                 status=FileStatus.MODIFIED if file_modified else FileStatus.UNMODIFIED,
-                copyright_pages=copyright_pages,
+                matched_pages=matched_pages,
                 blank_pages_removed=blank_pages_removed,
                 total_pages=total_pages,
-                message=f"删除版权页 {copyright_pages}, 空白页 {blank_pages_removed} 个",
+                message=f"删除匹配页 {matched_pages}, 空白页 {blank_pages_removed} 个",
                 elapsed_seconds=round(time.time() - start_time, 2),
             )
             self._emit_result(result)
             return result
 
         else:
-            self._log("info", f"  -> 未找到版权页面")
+            self._log("info", f"  -> 未找到匹配页面")
 
             # 检查并删除空白页
             if self.config.remove_blank_pages:
@@ -397,7 +397,7 @@ class PDFScanner:
                 status=FileStatus.MODIFIED if file_modified else FileStatus.UNMODIFIED,
                 blank_pages_removed=blank_pages_removed,
                 total_pages=total_pages,
-                message=f"无版权页，删除空白页 {blank_pages_removed} 个" if file_modified else "无版权页且无空白页",
+                message=f"无匹配页，删除空白页 {blank_pages_removed} 个" if file_modified else "无匹配页且无空白页",
                 elapsed_seconds=round(time.time() - start_time, 2),
             )
             self._emit_result(result)

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from pathlib import Path
 
 from commands import BaseCommand
@@ -187,6 +186,20 @@ class RenameCommand(BaseCommand):
         # 过滤掉不需要重命名的（新旧相同）
         plan = [(old, new) for old, new in plan if old.resolve() != new.resolve()]
 
+        # 检测目标文件名冲突
+        target_counts: dict[str, list[Path]] = {}
+        for old, new in plan:
+            key = str(new.resolve())
+            target_counts.setdefault(key, []).append(old)
+
+        conflicts = {k: v for k, v in target_counts.items() if len(v) > 1}
+        if conflicts:
+            print("  错误: 重命名后存在文件名冲突:")
+            for target, sources in conflicts.items():
+                names = ", ".join(s.name for s in sources)
+                print(f"    {Path(target).name} <- [{names}]")
+            return []
+
         return plan
 
     def _plan_pattern(self, files: list[Path], args: argparse.Namespace) -> list[tuple[Path, Path]]:
@@ -194,24 +207,22 @@ class RenameCommand(BaseCommand):
         plan = []
         seq = args.start
         for f in files:
-            stem = f.stem
             suffix = f.suffix
-            # 替换 {seq} 或 {seq:03d} 等格式
-            pattern = args.pattern
 
-            def _seq_replacer(match):
-                fmt = match.group(1)
-                if fmt:
-                    return format(seq, fmt)
-                return str(seq)
-
-            new_name = re.sub(r"\{seq(?::([^}]+))?\}", _seq_replacer, pattern)
-            new_name = new_name if suffix and "." in new_name else new_name + suffix
-            # 如果 pattern 包含扩展名则保持，否则保留原扩展名
+            # 如果 pattern 不含扩展名，保留原扩展名
             if "." not in args.pattern:
-                new_name = re.sub(r"\{seq(?::([^}]+))?\}", _seq_replacer, pattern) + suffix
+                new_base = re.sub(
+                    r"\{seq(?::([^}]+))?\}",
+                    lambda m, s=seq: format(s, m.group(1)) if m.group(1) else str(s),
+                    args.pattern,
+                )
+                new_name = new_base + suffix
             else:
-                new_name = re.sub(r"\{seq(?::([^}]+))?\}", _seq_replacer, pattern)
+                new_name = re.sub(
+                    r"\{seq(?::([^}]+))?\}",
+                    lambda m, s=seq: format(s, m.group(1)) if m.group(1) else str(s),
+                    args.pattern,
+                )
 
             new_path = f.parent / new_name
             plan.append((f, new_path))

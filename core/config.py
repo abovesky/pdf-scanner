@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import field
 from pathlib import Path
 from typing import Literal
 
@@ -16,46 +15,46 @@ _DEFAULT_KEYWORDS = ["出版发行", "侵权", "版权"]
 class AppConfig:
     """应用配置"""
 
-    # 目录配置
-    source_dir: Path = Path(".")
-    backup_dir: Path | None = None
-
-    # 扫描参数
-    keywords: list[str] = field(default_factory=lambda: _DEFAULT_KEYWORDS.copy())
-    search_logic: Literal["AND", "OR"] = "AND"
-    case_sensitive: bool = False
-    pages_to_check: str = "-1"
-    remove_copyright_pages: bool = True
-    remove_blank_pages: bool = True
-    debug_mode: bool = False
-
-    # OCR 配置
-    recognition_mode: str = "baidu"
-    ocr_accuracy: str = "accurate_basic"
-    ocr_lang: str = "chi_sim"
-    dpi: int = 300
-    filter_spaces: bool = True
-    fuzzy_match: bool = True
-    max_interfering_chars: int = 2
-
-    # 并发配置
-    max_workers: int = 4
-    ocr_max_workers: int = 2
-
-    # 进度文件
-    resume_file: Path = Path("pdf_scan_progress.json")
-
-    # OCR 密钥（从 .env 或环境变量读取）
-    baidu_app_id: str = ""
-    baidu_api_key: str = ""
-    baidu_secret_key: str = ""
-    volc_access_key: str = ""
-    volc_secret_key: str = ""
-    iflytek_app_id: str = ""
-    iflytek_api_key: str = ""
-    iflytek_secret_key: str = ""
-
     def __init__(self):
+        # 目录配置
+        self.source_dir: Path = Path(".")
+        self.backup_dir: Path | None = None
+
+        # 扫描参数
+        self.keywords: list[str] = _DEFAULT_KEYWORDS.copy()
+        self.search_logic: Literal["AND", "OR"] = "AND"
+        self.case_sensitive: bool = False
+        self.pages_to_check: str = "-1"
+        self.remove_copyright_pages: bool = True
+        self.remove_blank_pages: bool = True
+        self.debug_mode: bool = False
+
+        # OCR 配置
+        self.recognition_mode: str = "baidu"
+        self.ocr_accuracy: str = "accurate_basic"
+        self.ocr_lang: str = "chi_sim"
+        self.dpi: int = 300
+        self.filter_spaces: bool = True
+        self.fuzzy_match: bool = True
+        self.max_interfering_chars: int = 2
+
+        # 并发配置
+        self.max_workers: int = 4
+        self.ocr_max_workers: int = 2
+
+        # 进度文件
+        self.resume_file: Path = Path("pdf_scan_progress.json")
+
+        # OCR 密钥（从 .env 或环境变量读取）
+        self.baidu_app_id: str = ""
+        self.baidu_api_key: str = ""
+        self.baidu_secret_key: str = ""
+        self.volc_access_key: str = ""
+        self.volc_secret_key: str = ""
+        self.iflytek_app_id: str = ""
+        self.iflytek_api_key: str = ""
+        self.iflytek_secret_key: str = ""
+
         self._load_env()
         self._load_settings_file()
 

@@ -23,7 +23,7 @@ class ScanResult:
     file_name: str
     file_path: Path
     status: FileStatus
-    copyright_pages: list[int] = field(default_factory=list)
+    matched_pages: list[int] = field(default_factory=list)
     blank_pages_removed: int = 0
     total_pages: int = 0
     message: str = ""

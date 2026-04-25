@@ -5,7 +5,6 @@ pdf-blank 子命令 — 删除 PDF 空白页
 from __future__ import annotations
 
 import argparse
-import shutil
 from pathlib import Path
 
 from commands import BaseCommand

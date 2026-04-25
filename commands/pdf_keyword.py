@@ -25,33 +25,6 @@ STATUS_LABELS = {
     FileStatus.SKIPPED: "已跳过",
 }
 
-_completed = 0
-_total = 0
-_print_lock = threading.Lock()
-_log_level = 0
-
-
-def _log_handler(level: str, msg: str):
-    level_priority = {"error": 0, "warning": 1, "info": 2, "debug": 3}
-    if level_priority.get(level, 2) <= _log_level:
-        label = {"error": "错误", "warning": "警告", "info": "信息", "debug": "调试"}.get(level, level)
-        print(f"  [{label}] {msg}")
-
-
-def _result_handler(result: ScanResult):
-    global _completed
-    with _print_lock:
-        _completed += 1
-        status = STATUS_LABELS.get(result.status, str(result.status))
-        parts = [f"[{_completed}/{_total}]", result.file_name, status]
-        if result.copyright_pages:
-            parts.append(f"关键词页:{result.copyright_pages}")
-        if result.elapsed_seconds:
-            parts.append(f"{result.elapsed_seconds}s")
-        if result.status == FileStatus.FAILED and result.message:
-            parts.append(result.message)
-        print("  " + " | ".join(parts))
-
 
 def _display_width(s: str) -> int:
     return sum(2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s)
@@ -78,7 +51,7 @@ def print_results(results: list[ScanResult]):
 
     for r in results:
         status_str = STATUS_LABELS.get(r.status, str(r.status))
-        kp = str(r.copyright_pages) if r.copyright_pages else "-"
+        kp = str(r.matched_pages) if r.matched_pages else "-"
         tp = str(r.total_pages) if r.total_pages else "-"
         et = f"{r.elapsed_seconds}s" if r.elapsed_seconds else "-"
         name = r.file_name[:28] + ".." if len(r.file_name) > 30 else r.file_name
@@ -99,6 +72,12 @@ class PdfKeywordCommand(BaseCommand):
     help_text = "删除 PDF 中包含指定关键词的页面"
     description = "通过 OCR 识别 PDF 页面文本，自动删除包含指定关键词的页面"
 
+    def __init__(self):
+        self._completed = 0
+        self._total = 0
+        self._print_lock = threading.Lock()
+        self._log_level = 0
+
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         # 目录
         dir_group = parser.add_argument_group("目录配置")
@@ -111,7 +90,7 @@ class PdfKeywordCommand(BaseCommand):
         kw_group.add_argument("--search-logic", choices=["AND", "OR"], help="关键词搜索逻辑")
         kw_group.add_argument("--case-sensitive", action="store_true", default=None, help="区分大小写")
         kw_group.add_argument("--pages-to-check", type=str, help="检查页面范围（如: 2,-1 或 2:5）")
-        kw_group.add_argument("--detect-only", action="store_true", help="仅检测不删除")
+        kw_group.add_argument("--dry-run", "-n", action="store_true", help="预览模式，只显示结果不实际删除")
         kw_group.add_argument("--debug", action="store_true", default=None, help="调试模式")
 
         # OCR
@@ -133,9 +112,26 @@ class PdfKeywordCommand(BaseCommand):
         parser.add_argument("--save-config", action="store_true", help="保存当前配置到 settings.json")
         parser.add_argument("--reset-progress", action="store_true", help="重置扫描进度（重新扫描所有文件）")
 
-    def execute(self, args: argparse.Namespace) -> None:
-        global _completed, _total, _log_level
+    def _log_handler(self, level: str, msg: str):
+        level_priority = {"error": 0, "warning": 1, "info": 2, "debug": 3}
+        if level_priority.get(level, 2) <= self._log_level:
+            label = {"error": "错误", "warning": "警告", "info": "信息", "debug": "调试"}.get(level, level)
+            print(f"  [{label}] {msg}")
 
+    def _result_handler(self, result: ScanResult):
+        with self._print_lock:
+            self._completed += 1
+            status = STATUS_LABELS.get(result.status, str(result.status))
+            parts = [f"[{self._completed}/{self._total}]", result.file_name, status]
+            if result.matched_pages:
+                parts.append(f"关键词页:{result.matched_pages}")
+            if result.elapsed_seconds:
+                parts.append(f"{result.elapsed_seconds}s")
+            if result.status == FileStatus.FAILED and result.message:
+                parts.append(result.message)
+            print("  " + " | ".join(parts))
+
+    def execute(self, args: argparse.Namespace) -> None:
         # 加载配置
         config = AppConfig()
         config = self._apply_cli_args(config, args)
@@ -145,11 +141,11 @@ class PdfKeywordCommand(BaseCommand):
 
         # 日志级别
         if args.verbose:
-            _log_level = 2
+            self._log_level = 2
         elif args.quiet:
-            _log_level = 0
+            self._log_level = 0
         else:
-            _log_level = 1
+            self._log_level = 1
 
         # 保存配置
         if args.save_config:
@@ -202,18 +198,18 @@ class PdfKeywordCommand(BaseCommand):
 
         # 创建扫描器
         scanner = PDFScanner(config=config, cancel_event=cancel_event)
-        scanner.log_callback = _log_handler
-        scanner.result_callback = _result_handler
+        scanner.log_callback = self._log_handler
+        scanner.result_callback = self._result_handler
 
         # 初始化计数
-        _completed = 0
-        _total = len(scanner.get_pdf_files())
+        self._completed = 0
+        self._total = len(scanner.get_pdf_files())
 
-        if _total == 0:
+        if self._total == 0:
             print("  没有发现新的未处理 PDF 文件。\n")
             return
 
-        print(f"  开始扫描 {_total} 个文件...\n")
+        print(f"  开始扫描 {self._total} 个文件...\n")
         results = scanner.run()
         print_results(results)
 
@@ -242,7 +238,7 @@ class PdfKeywordCommand(BaseCommand):
 
         _FLAG_MAP = {
             "case_sensitive": ("case_sensitive", True),
-            "detect_only": ("remove_copyright_pages", False),
+            "dry_run": ("remove_copyright_pages", False),
             "debug": ("debug_mode", True),
             "no_filter_spaces": ("filter_spaces", False),
             "no_fuzzy_match": ("fuzzy_match", False),
