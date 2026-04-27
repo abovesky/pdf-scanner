@@ -297,6 +297,163 @@ class PDFEngine:
             logger.error(f"清除密码失败: {e}")
             return False, str(e)
 
+    # 签名相关正则
+    _SIG_FIELD_RE = re.compile(r"/FT\s*/Sig\b")
+    _SIG_VALUE_RE = re.compile(r"/Type\s*/Sig\b")
+
+    def _find_signature_xrefs(self, doc) -> tuple[list[int], list[int]]:
+        """
+        查找所有签名相关的 xref
+        返回 (签名字段 xref 列表, 签名值字典 xref 列表)
+        """
+        field_xrefs = []
+        value_xrefs = []
+        for xref in range(1, doc.xref_length()):
+            try:
+                obj_str = doc.xref_object(xref)
+                if self._SIG_FIELD_RE.search(obj_str):
+                    field_xrefs.append(xref)
+                elif self._SIG_VALUE_RE.search(obj_str):
+                    value_xrefs.append(xref)
+            except Exception:
+                continue
+        return field_xrefs, value_xrefs
+
+    def _clean_acroform_fields(self, doc, sig_field_xrefs: list[int]) -> None:
+        """从 AcroForm 的 /Fields 数组中移除签名字段引用"""
+        try:
+            catalog_xref = doc.pdf_catalog()
+            catalog_str = doc.xref_object(catalog_xref)
+            # 查找 AcroForm 引用
+            acroform_match = re.search(r"/AcroForm\s+(\d+)\s+(\d+)\s+R", catalog_str)
+            if not acroform_match:
+                return
+            acroform_xref = int(acroform_match.group(1))
+            acroform_str = doc.xref_object(acroform_xref)
+
+            # 查找 Fields 数组引用
+            fields_match = re.search(r"/Fields\s+(\d+)\s+(\d+)\s+R", acroform_str)
+            if not fields_match:
+                return
+            fields_xref = int(fields_match.group(1))
+
+            # 读取 Fields 数组内容
+            fields_str = doc.xref_object(fields_xref)
+            # 提取所有 xref 引用
+            refs = re.findall(r"(\d+)\s+(\d+)\s+R", fields_str)
+            remaining_refs = [
+                f"{xref_num} {gen_num} R"
+                for xref_num, gen_num in refs
+                if int(xref_num) not in sig_field_xrefs
+            ]
+
+            # 用 xref_set_object 替换整个 Fields 数组
+            new_array = f"[{' '.join(remaining_refs)}]"
+            doc.xref_set_object(fields_xref, new_array)
+        except Exception as e:
+            logger.warning(f"清理 AcroForm Fields 时出错: {e}")
+
+    def has_signatures(self, pdf_path: Path) -> bool:
+        """检查 PDF 是否包含数字签名"""
+        import fitz
+        with fitz.open(str(pdf_path)) as doc:
+            field_xrefs, value_xrefs = self._find_signature_xrefs(doc)
+            return bool(field_xrefs) or bool(value_xrefs)
+
+    def remove_signatures(
+        self,
+        pdf_path: Path,
+        output_path: Path | None = None,
+        backup: bool = True,
+    ) -> tuple[bool, str]:
+        """
+        清除 PDF 数字签名
+        通过重建全新 PDF（仅复制页面内容）彻底丢弃原文件中的签名结构。
+        output_path: 输出路径，默认覆盖原文件
+        backup: 覆盖时是否创建 .bak 备份
+        返回 (是否成功, 消息)
+        """
+        import fitz
+        import tempfile
+
+        save_path = output_path or pdf_path
+
+        try:
+            with fitz.open(str(pdf_path)) as src_doc:
+                # 检测签名
+                sig_field_xrefs, sig_value_xrefs = self._find_signature_xrefs(src_doc)
+                all_sig_xrefs = set(sig_field_xrefs + sig_value_xrefs)
+                if not all_sig_xrefs:
+                    return False, "文件无数字签名"
+
+                sig_count = len(sig_field_xrefs) or len(sig_value_xrefs)
+
+                # 备份原文件
+                if backup and save_path == pdf_path:
+                    backup_path = pdf_path.with_suffix(".pdf.bak")
+                    try:
+                        shutil.copy2(str(pdf_path), str(backup_path))
+                        logger.info(f"已创建备份: {backup_path.name}")
+                    except Exception as e:
+                        logger.warning(f"创建备份失败: {e}")
+
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # 重建全新 PDF：只复制页面，丢弃所有表单、签名、元数据
+                new_doc = fitz.open()
+                new_doc.insert_pdf(
+                    src_doc,
+                    from_page=0,
+                    to_page=src_doc.page_count - 1,
+                    start_at=-1,
+                )
+
+                # 复制基本元数据（不含签名相关）
+                meta = src_doc.metadata
+                if meta:
+                    clean_meta = {k: v for k, v in meta.items() if v and k != "encryption"}
+                    if clean_meta:
+                        new_doc.set_metadata(clean_meta)
+
+                # 清理新文档中残留的签名字段和 widget
+                for page in new_doc:
+                    widgets_to_delete = []
+                    widget = page.first_widget
+                    while widget:
+                        widgets_to_delete.append(widget)
+                        widget = widget.next
+                    for w in widgets_to_delete:
+                        try:
+                            page.delete_widget(w)
+                        except Exception:
+                            pass
+
+                # 清除文档目录中的 AcroForm、Perms、DSS 等
+                try:
+                    catalog_xref = new_doc.pdf_catalog()
+                    new_doc.xref_set_key(catalog_xref, "AcroForm", "null")
+                    new_doc.xref_set_key(catalog_xref, "Perms", "null")
+                    new_doc.xref_set_key(catalog_xref, "DSS", "null")
+                    new_doc.xref_set_key(catalog_xref, "DocTimeStamp", "null")
+                except Exception:
+                    pass
+
+                fd, tmp_path = tempfile.mkstemp(suffix=".pdf", dir=str(pdf_path.parent))
+                os.close(fd)
+                new_doc.save(tmp_path, garbage=4, deflate=True)
+                new_doc.close()
+
+            if save_path == pdf_path:
+                shutil.move(tmp_path, str(save_path))
+            else:
+                shutil.copy2(tmp_path, str(save_path))
+                os.remove(tmp_path)
+
+            return True, f"已清除 {sig_count} 个签名"
+        except Exception as e:
+            logger.error(f"清除签名失败: {e}")
+            return False, str(e)
+
     def remove_blank_pages(
         self,
         pdf_path: Path,

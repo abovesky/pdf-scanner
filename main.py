@@ -31,6 +31,8 @@ def build_parser() -> argparse.ArgumentParser:
   python main.py pdf-blank --source ./doc.pdf
   python main.py pdf-decrypt --source ./doc.pdf --password 123456
   python main.py pdf-decrypt --source ./pdfs --recursive
+  python main.py pdf-unsign --source ./doc.pdf
+  python main.py pdf-unsign --source ./pdfs --dry-run
   python main.py rename ./pics/*.jpg --pattern "IMG_{seq:03d}" --dry-run
 """,
     )

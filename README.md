@@ -161,6 +161,7 @@ python main.py rename ./mixed/ --replace "old>new" --include-ext jpg,png
 │   ├── pdf_keyword.py      # 删除含关键词页面命令
 │   ├── pdf_blank.py        # 删除空白页命令
 │   ├── pdf_decrypt.py      # 清除密码保护命令
+│   ├── pdf_unsign.py       # 清除数字签名命令
 │   └── rename.py           # 文件批量重命名命令
 └── core/                   # 核心功能模块
     ├── __init__.py
