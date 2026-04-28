@@ -10,6 +10,7 @@ import re
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
+from dataclasses import dataclass
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -559,3 +560,281 @@ class PDFEngine:
         except Exception as e:
             logger.error(f"去除水印失败: {e}")
             return False, 0, [], str(e)
+
+    @staticmethod
+    def _parse_size_str(size_str: str) -> int:
+        """解析大小字符串，支持 K/k(KB) 和 M/m(MB) 后缀"""
+        size_str = size_str.strip().upper()
+        if size_str.endswith("K"):
+            return int(float(size_str[:-1]) * 1024)
+        elif size_str.endswith("M"):
+            return int(float(size_str[:-1]) * 1024 * 1024)
+        else:
+            return int(size_str)
+
+    @staticmethod
+    def _generate_transparent_png() -> bytes:
+        """生成 1x1 透明 PNG 字节流"""
+        import io
+
+        from PIL import Image
+
+        img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    @staticmethod
+    def _image_matches(img: ImageInfo, criteria: ImageMatchCriteria) -> bool:
+        """
+        判断单张图片是否满足匹配条件
+        同类条件 OR，不同类条件 AND
+        """
+        conditions: list[bool] = []
+
+        # MD5 维度（列表内 OR）— 匹配流 MD5 或像素 MD5
+        if criteria.md5s:
+            conditions.append(img.md5 in criteria.md5s)
+        if criteria.pixel_md5s:
+            conditions.append(img.pixel_md5 in criteria.pixel_md5s)
+
+        # 尺寸维度（范围 AND）
+        dim_ok = True
+        if criteria.min_width is not None and img.width < criteria.min_width:
+            dim_ok = False
+        if criteria.max_width is not None and img.width > criteria.max_width:
+            dim_ok = False
+        if criteria.min_height is not None and img.height < criteria.min_height:
+            dim_ok = False
+        if criteria.max_height is not None and img.height > criteria.max_height:
+            dim_ok = False
+        if criteria.min_width is not None or criteria.max_width is not None or criteria.min_height is not None or criteria.max_height is not None:
+            conditions.append(dim_ok)
+
+        # 大小维度（范围 AND）
+        size_ok = True
+        if criteria.min_size is not None and img.size < criteria.min_size:
+            size_ok = False
+        if criteria.max_size is not None and img.size > criteria.max_size:
+            size_ok = False
+        if criteria.min_size is not None or criteria.max_size is not None:
+            conditions.append(size_ok)
+
+        # 格式维度（列表内 OR）
+        if criteria.formats:
+            conditions.append(img.format in criteria.formats)
+
+        # 覆盖率维度（范围 AND）
+        cov_ok = True
+        if criteria.min_coverage is not None:
+            if img.coverage is None or img.coverage < criteria.min_coverage:
+                cov_ok = False
+        if criteria.max_coverage is not None:
+            if img.coverage is None or img.coverage > criteria.max_coverage:
+                cov_ok = False
+        if criteria.min_coverage is not None or criteria.max_coverage is not None:
+            conditions.append(cov_ok)
+
+        # Alpha 维度
+        if criteria.has_alpha is not None:
+            conditions.append(img.has_alpha == criteria.has_alpha)
+
+        if not conditions:
+            return False
+        return all(conditions)
+
+    def analyze_images(self, pdf_path: Path) -> list[ImageInfo]:
+        """分析 PDF 中的所有嵌入图片，返回图片信息列表"""
+        import hashlib
+        import io
+
+        import fitz
+        from PIL import Image
+
+        results: list[ImageInfo] = []
+        seen_xrefs: set[int] = set()
+
+        with fitz.open(str(pdf_path)) as doc:
+            for page_num in range(1, len(doc) + 1):
+                if page_num < 1 or page_num > len(doc):
+                    continue
+                page = doc[page_num - 1]
+                page_area = page.rect.width * page.rect.height
+
+                for img_info in page.get_images(full=True):
+                    xref = img_info[0]
+                    if xref in seen_xrefs:
+                        continue
+                    seen_xrefs.add(xref)
+
+                    try:
+                        extracted = doc.extract_image(xref)
+                        if not extracted:
+                            continue
+
+                        img_bytes = extracted["image"]
+                        ext = extracted.get("ext", "").lower()
+                        width = extracted.get("width", 0)
+                        height = extracted.get("height", 0)
+                        size = len(img_bytes)
+                        md5 = hashlib.md5(img_bytes).hexdigest().lower()
+
+                        # 覆盖率
+                        coverage: float | None = None
+                        rects = page.get_image_rects(xref)
+                        if rects and page_area > 0:
+                            total_rect_area = sum(r.width * r.height for r in rects)
+                            coverage = total_rect_area / page_area
+
+                        # Alpha 通道：检查 SMask（PyMuPDF 将 alpha 存为独立 SMask 对象）
+                        # 或检查 PNG 解码后的模式
+                        has_alpha = False
+                        try:
+                            xref_obj = doc.xref_object(xref)
+                            if "/SMask" in xref_obj:
+                                has_alpha = True
+                            elif ext == "png":
+                                try:
+                                    pil_img = Image.open(io.BytesIO(img_bytes))
+                                    if "A" in pil_img.mode:
+                                        has_alpha = True
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
+
+                        # 像素级 MD5（用于 --image 匹配，不受重编码影响）
+                        # 统一用 RGB 模式计算，因为 PyMuPDF 提取时会将 alpha 存为 SMask
+                        pixel_md5 = ""
+                        try:
+                            pil_img = Image.open(io.BytesIO(img_bytes))
+                            pil_img = pil_img.convert("RGB")
+                            pixel_md5 = hashlib.md5(pil_img.tobytes()).hexdigest().lower()
+                        except Exception:
+                            pass
+
+                        results.append(
+                            ImageInfo(
+                                xref=xref,
+                                page=page_num,
+                                md5=md5,
+                                pixel_md5=pixel_md5,
+                                width=width,
+                                height=height,
+                                size=size,
+                                format=ext,
+                                coverage=coverage,
+                                has_alpha=has_alpha,
+                            )
+                        )
+                    except Exception as e:
+                        logger.warning(f"提取图片 xref={xref} 失败: {e}")
+
+        return results
+
+    def remove_images_by_criteria(
+        self,
+        pdf_path: Path,
+        criteria: ImageMatchCriteria,
+        output_path: Path | None = None,
+        backup: bool = True,
+    ) -> tuple[bool, int, list[ImageInfo], str]:
+        """
+        按条件匹配并删除图片（替换为透明像素）
+        返回 (是否修改, 删除实例数, 匹配到的图片列表, 消息)
+        """
+        import fitz
+        import tempfile
+
+        # 分析并匹配
+        all_images = self.analyze_images(pdf_path)
+        matched = [img for img in all_images if self._image_matches(img, criteria)]
+        if not matched:
+            return False, 0, [], "未匹配到目标图片"
+
+        xrefs_to_replace = {img.xref for img in matched}
+        save_path = output_path or pdf_path
+
+        try:
+            with fitz.open(str(pdf_path)) as doc:
+                # 统计实际影响的页面实例数
+                instance_count = 0
+                for page_num in range(1, len(doc) + 1):
+                    if page_num < 1 or page_num > len(doc):
+                        continue
+                    page = doc[page_num - 1]
+                    for img_info in page.get_images(full=True):
+                        if img_info[0] in xrefs_to_replace:
+                            instance_count += 1
+
+                # 替换数据流并修正 XObject 字典
+                transparent_png = self._generate_transparent_png()
+                for xref in xrefs_to_replace:
+                    try:
+                        doc.update_stream(xref, transparent_png)
+                        doc.xref_set_key(xref, "Width", "1")
+                        doc.xref_set_key(xref, "Height", "1")
+                        doc.xref_set_key(xref, "ColorSpace", "/DeviceRGB")
+                        doc.xref_set_key(xref, "BitsPerComponent", "8")
+                        for key in ("Mask", "SMask", "Decode", "DecodeParms"):
+                            try:
+                                doc.xref_set_key(xref, key, "null")
+                            except Exception:
+                                pass
+                    except Exception as e:
+                        logger.warning(f"替换 xref={xref} 失败: {e}")
+
+                # 备份
+                if backup and save_path == pdf_path:
+                    backup_path = pdf_path.with_suffix(".pdf.bak")
+                    try:
+                        shutil.copy2(str(pdf_path), str(backup_path))
+                        logger.info(f"已创建备份: {backup_path.name}")
+                    except Exception as e:
+                        logger.warning(f"创建备份失败: {e}")
+
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+
+                if save_path == pdf_path:
+                    fd, tmp_path = tempfile.mkstemp(suffix=".pdf", dir=str(pdf_path.parent))
+                    os.close(fd)
+                    doc.save(tmp_path, garbage=4, deflate=True)
+                    shutil.move(tmp_path, str(save_path))
+                else:
+                    doc.save(str(save_path), garbage=4, deflate=True)
+
+            msg = f"已删除 {instance_count} 个图片实例（涉及 {len(xrefs_to_replace)} 个唯一图像）"
+            return True, instance_count, matched, msg
+        except Exception as e:
+            logger.error(f"删除图片失败: {e}")
+            return False, 0, [], str(e)
+
+
+@dataclass
+class ImageMatchCriteria:
+    md5s: list[str] | None = None
+    pixel_md5s: list[str] | None = None
+    min_width: int | None = None
+    max_width: int | None = None
+    min_height: int | None = None
+    max_height: int | None = None
+    min_size: int | None = None
+    max_size: int | None = None
+    formats: list[str] | None = None
+    min_coverage: float | None = None
+    max_coverage: float | None = None
+    has_alpha: bool | None = None
+
+
+@dataclass
+class ImageInfo:
+    xref: int
+    page: int
+    md5: str
+    pixel_md5: str
+    width: int
+    height: int
+    size: int
+    format: str
+    coverage: float | None
+    has_alpha: bool
