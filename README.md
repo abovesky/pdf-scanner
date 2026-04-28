@@ -120,6 +120,96 @@ python main.py pdf-decrypt --source ./pdfs --dry-run
 python main.py pdf-decrypt --source ./doc.pdf --no-backup
 ```
 
+### pdf-dewatermark — 去除 PDF 注释型水印
+
+扫描 PDF 文件，查找并删除注释型水印（Watermark / Stamp）。
+
+```bash
+# 去除水印
+python main.py pdf-dewatermark --source ./doc.pdf
+
+# 预览模式（只显示检测到的水印，不实际删除）
+python main.py pdf-dewatermark --source ./doc.pdf --dry-run
+
+# 批量处理目录
+python main.py pdf-dewatermark --source ./pdfs --recursive
+
+# 不创建备份文件
+python main.py pdf-dewatermark --source ./doc.pdf --no-backup
+```
+
+### pdf-remove-image — 按条件删除 PDF 嵌入图片
+
+通过 MD5、尺寸、格式、覆盖率等多种条件匹配并删除 PDF 中的嵌入图片（如水印图片）。
+
+```bash
+# 按水印图片文件匹配删除
+python main.py pdf-remove-image --source ./doc.pdf --image ./watermark.png
+
+# 按 MD5 匹配
+python main.py pdf-remove-image --source ./doc.pdf --md5 abc123def456
+
+# 按格式过滤（如 png 水印）
+python main.py pdf-remove-image --source ./pdfs --format png --recursive
+
+# 按页面覆盖率过滤（覆盖率 >= 50% 的图片）
+python main.py pdf-remove-image --source ./doc.pdf --min-coverage 0.5
+
+# 按尺寸过滤
+python main.py pdf-remove-image --source ./doc.pdf --min-width 1000 --min-height 500
+
+# 按嵌入大小过滤（支持 K/M 单位）
+python main.py pdf-remove-image --source ./doc.pdf --min-size 50K --max-size 2M
+
+# 匹配带透明通道的图片
+python main.py pdf-remove-image --source ./doc.pdf --has-alpha
+
+# 预览模式
+python main.py pdf-remove-image --source ./doc.pdf --image ./watermark.png --dry-run
+
+# 多条件组合
+python main.py pdf-remove-image --source ./pdfs --format png --min-coverage 0.3 --has-alpha --recursive
+```
+
+### pdf-replace — 按规则查找并替换 PDF 文本内容
+
+扫描 PDF 文件，按规则查找并替换文本内容。支持精确匹配、正则匹配和批量规则文件。
+
+```bash
+# 精确查找替换
+python main.py pdf-replace --source ./doc.pdf --find "旧文本" --replace "新文本"
+
+# 删除匹配文本（替换为空）
+python main.py pdf-replace --source ./pdfs --find "版权" --replace "" --recursive
+
+# 正则匹配
+python main.py pdf-replace --source ./doc.pdf --find "\d{4}" --replace "2025" --regex
+
+# 大小写敏感匹配
+python main.py pdf-replace --source ./doc.pdf --find "Copyright" --replace "" --case-sensitive
+
+# 预览模式（只显示匹配结果不实际替换）
+python main.py pdf-replace --source ./doc.pdf --find "旧文本" --replace "新文本" --dry-run
+
+# 批量规则替换（JSON 规则文件）
+python main.py pdf-replace --source ./pdfs --rules ./rules.json --recursive
+
+# 不创建备份文件
+python main.py pdf-replace --source ./doc.pdf --find "旧文本" --replace "新文本" --no-backup
+```
+
+**JSON 规则文件格式**（`--rules`）：
+
+```json
+[
+  {"find": "旧文本1", "replace": "新文本1"},
+  {"find": "旧文本2", "replace": "新文本2", "regex": true},
+  {"find": "旧文本3", "replace": "新文本3", "case_sensitive": true}
+]
+```
+
+> **已知限制**：仅适用于可解析文本型 PDF；表单域和批注中的文本不可搜索替换；替换区域下方的图像/线条可能被删除；正则匹配仅限单 span 内；替换文本过长可能导致字号缩放。
+
 ### rename — 文件批量重命名
 
 支持序号格式化、查找替换、正则匹配，内置预览模式。
@@ -162,6 +252,9 @@ python main.py rename ./mixed/ --replace "old>new" --include-ext jpg,png
 │   ├── pdf_blank.py        # 删除空白页命令
 │   ├── pdf_decrypt.py      # 清除密码保护命令
 │   ├── pdf_unsign.py       # 清除数字签名命令
+│   ├── pdf_dewatermark.py  # 去除注释型水印命令
+│   ├── pdf_remove_image.py # 按条件删除嵌入图片命令
+│   ├── pdf_replace.py      # 查找替换文本命令
 │   └── rename.py           # 文件批量重命名命令
 └── core/                   # 核心功能模块
     ├── __init__.py
