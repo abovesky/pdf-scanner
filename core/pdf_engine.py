@@ -471,3 +471,91 @@ class PDFEngine:
 
         success = self.delete_pages(pdf_path, blank_pages, output_path, backup=backup)
         return success, blank_pages
+
+    def analyze_annotation_watermarks(self, pdf_path: Path) -> list[dict]:
+        """
+        检测注释型水印
+        返回 [{'page': int, 'type': str, 'rect': tuple}, ...]
+        """
+        import fitz
+
+        results = []
+        with fitz.open(str(pdf_path)) as doc:
+            for i in range(len(doc)):
+                page = doc[i]
+                for annot in page.annots():
+                    if annot is None:
+                        continue
+                    subtype = annot.type[1]
+                    if subtype in ("Watermark", "Stamp"):
+                        results.append(
+                            {
+                                "page": i + 1,
+                                "type": subtype,
+                                "rect": tuple(annot.rect),
+                            }
+                        )
+        return results
+
+    def remove_annotation_watermarks(
+        self,
+        pdf_path: Path,
+        output_path: Path | None = None,
+        backup: bool = True,
+    ) -> tuple[bool, int, list[int], str]:
+        """
+        删除注释型水印并保存
+        返回 (是否修改, 删除数量, 影响的页码列表, 消息)
+        """
+        import fitz
+        import tempfile
+
+        save_path = output_path or pdf_path
+
+        try:
+            with fitz.open(str(pdf_path)) as doc:
+                removed_count = 0
+                affected_pages: set[int] = set()
+
+                for i in range(len(doc)):
+                    page = doc[i]
+                    annots_to_delete = []
+                    for annot in page.annots():
+                        if annot is None:
+                            continue
+                        subtype = annot.type[1]
+                        if subtype in ("Watermark", "Stamp"):
+                            annots_to_delete.append(annot)
+
+                    for annot in annots_to_delete:
+                        page.delete_annot(annot)
+                        removed_count += 1
+                        affected_pages.add(i + 1)
+
+                if removed_count == 0:
+                    return False, 0, [], "未发现水印注释"
+
+                # 备份原文件
+                if backup and save_path == pdf_path:
+                    backup_path = pdf_path.with_suffix(".pdf.bak")
+                    try:
+                        shutil.copy2(str(pdf_path), str(backup_path))
+                        logger.info(f"已创建备份: {backup_path.name}")
+                    except Exception as e:
+                        logger.warning(f"创建备份失败: {e}")
+
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Windows 上直接保存到同一文件可能因句柄占用失败，先写临时文件再替换
+                if save_path == pdf_path:
+                    fd, tmp_path = tempfile.mkstemp(suffix=".pdf", dir=str(pdf_path.parent))
+                    os.close(fd)
+                    doc.save(tmp_path, garbage=4, deflate=True)
+                    shutil.move(tmp_path, str(save_path))
+                else:
+                    doc.save(str(save_path), garbage=4, deflate=True)
+
+            return True, removed_count, sorted(affected_pages), f"已删除 {removed_count} 个水印注释"
+        except Exception as e:
+            logger.error(f"去除水印失败: {e}")
+            return False, 0, [], str(e)

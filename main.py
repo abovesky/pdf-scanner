@@ -17,10 +17,12 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 可用子命令:
-  pdf-keyword   删除 PDF 中包含指定关键词的页面
-  pdf-blank     删除 PDF 空白页
-  pdf-decrypt   清除 PDF 密码保护
-  rename        文件批量重命名
+  pdf-keyword     删除 PDF 中包含指定关键词的页面
+  pdf-blank       删除 PDF 空白页
+  pdf-decrypt     清除 PDF 密码保护
+  pdf-unsign      清除 PDF 数字签名
+  pdf-dewatermark 去除 PDF 注释型水印
+  rename          文件批量重命名
 
 使用 'python main.py <子命令> --help' 查看子命令详细用法
 
@@ -33,6 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
   python main.py pdf-decrypt --source ./pdfs --recursive
   python main.py pdf-unsign --source ./doc.pdf
   python main.py pdf-unsign --source ./pdfs --dry-run
+  python main.py pdf-dewatermark --source ./doc.pdf --dry-run
+  python main.py pdf-dewatermark --source ./pdfs --recursive
   python main.py rename ./pics/*.jpg --pattern "IMG_{seq:03d}" --dry-run
 """,
     )
