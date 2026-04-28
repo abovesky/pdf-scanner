@@ -584,6 +584,78 @@ class PDFEngine:
         img.save(buf, format="PNG")
         return buf.getvalue()
 
+    def _remove_image_refs_from_page(
+        self, page, target_xrefs: set[int]
+    ) -> tuple[bool, int]:
+        """
+        从单个页面的内容流中移除对指定 xref 集合的图片引用。
+        返回 (是否修改了页面, 移除的实例数)
+        """
+        # 建立 xref -> 图片名称 的映射（只关心目标 xref）
+        xref_to_names: dict[int, list[str]] = {}
+        for img_info in page.get_images(full=True):
+            xref = img_info[0]
+            name = img_info[7]  # 图片在内容流中的名称，如 'Im0'
+            if xref in target_xrefs:
+                xref_to_names.setdefault(xref, []).append(name)
+
+        if not xref_to_names:
+            return False, 0
+
+        names_to_remove = set()
+        for names in xref_to_names.values():
+            names_to_remove.update(names)
+
+        removed_count = 0
+        modified = False
+
+        # 获取该页所有内容流
+        content_xrefs = page.get_contents()
+        if not content_xrefs:
+            return False, 0
+
+        for content_xref in content_xrefs:
+            try:
+                raw = page.parent.xref_stream(content_xref)
+                if not raw:
+                    continue
+            except Exception:
+                continue
+
+            new_raw = raw
+            for name in names_to_remove:
+                name_bytes = b"/" + name.encode("latin-1", errors="ignore")
+
+                # 策略1：优先移除 q ... /Name Do ... Q 整个图形状态块
+                # 这是 PDF 中嵌入图片最常见的包裹形式
+                pattern = re.compile(
+                    rb"q\s+[^Q]*?" + re.escape(name_bytes) + rb"\s+Do[^Q]*?Q",
+                    re.DOTALL,
+                )
+                replaced, count = pattern.subn(b"", new_raw)
+                if count > 0:
+                    new_raw = replaced
+                    removed_count += count
+                    continue
+
+                # 策略2：如果找不到完整的 q...Q 块，降级为仅移除 /Name Do
+                pattern2 = re.compile(
+                    rb"\s*" + re.escape(name_bytes) + rb"\s+Do\s*"
+                )
+                replaced2, count2 = pattern2.subn(b" ", new_raw)
+                if count2 > 0:
+                    new_raw = replaced2
+                    removed_count += count2
+
+            if new_raw != raw:
+                try:
+                    page.parent.update_stream(content_xref, new_raw)
+                    modified = True
+                except Exception as e:
+                    logger.warning(f"更新页面内容流 xref={content_xref} 失败: {e}")
+
+        return modified, removed_count
+
     @staticmethod
     def _image_matches(img: ImageInfo, criteria: ImageMatchCriteria) -> bool:
         """
@@ -740,7 +812,7 @@ class PDFEngine:
         backup: bool = True,
     ) -> tuple[bool, int, list[ImageInfo], str]:
         """
-        按条件匹配并删除图片（替换为透明像素）
+        按条件匹配并删除图片（从页面内容流中移除图片引用）
         返回 (是否修改, 删除实例数, 匹配到的图片列表, 消息)
         """
         import fitz
@@ -752,37 +824,25 @@ class PDFEngine:
         if not matched:
             return False, 0, [], "未匹配到目标图片"
 
-        xrefs_to_replace = {img.xref for img in matched}
+        target_xrefs = {img.xref for img in matched}
         save_path = output_path or pdf_path
 
         try:
             with fitz.open(str(pdf_path)) as doc:
-                # 统计实际影响的页面实例数
                 instance_count = 0
-                for page_num in range(1, len(doc) + 1):
-                    if page_num < 1 or page_num > len(doc):
-                        continue
-                    page = doc[page_num - 1]
-                    for img_info in page.get_images(full=True):
-                        if img_info[0] in xrefs_to_replace:
-                            instance_count += 1
+                any_modified = False
 
-                # 替换数据流并修正 XObject 字典
-                transparent_png = self._generate_transparent_png()
-                for xref in xrefs_to_replace:
-                    try:
-                        doc.update_stream(xref, transparent_png)
-                        doc.xref_set_key(xref, "Width", "1")
-                        doc.xref_set_key(xref, "Height", "1")
-                        doc.xref_set_key(xref, "ColorSpace", "/DeviceRGB")
-                        doc.xref_set_key(xref, "BitsPerComponent", "8")
-                        for key in ("Mask", "SMask", "Decode", "DecodeParms"):
-                            try:
-                                doc.xref_set_key(xref, key, "null")
-                            except Exception:
-                                pass
-                    except Exception as e:
-                        logger.warning(f"替换 xref={xref} 失败: {e}")
+                for page_num in range(1, len(doc) + 1):
+                    page = doc[page_num - 1]
+                    modified, removed = self._remove_image_refs_from_page(
+                        page, target_xrefs
+                    )
+                    if modified:
+                        any_modified = True
+                    instance_count += removed
+
+                if not any_modified:
+                    return False, 0, matched, "匹配到图片，但未能从内容流中移除引用"
 
                 # 备份
                 if backup and save_path == pdf_path:
@@ -803,7 +863,7 @@ class PDFEngine:
                 else:
                     doc.save(str(save_path), garbage=4, deflate=True)
 
-            msg = f"已删除 {instance_count} 个图片实例（涉及 {len(xrefs_to_replace)} 个唯一图像）"
+            msg = f"已删除 {instance_count} 个图片实例（涉及 {len(target_xrefs)} 个唯一图像）"
             return True, instance_count, matched, msg
         except Exception as e:
             logger.error(f"删除图片失败: {e}")
