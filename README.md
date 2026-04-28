@@ -168,18 +168,6 @@ python main.py pdf-remove-image --source ./doc.pdf --dry-run
 python main.py pdf-remove-image --source ./pdfs --format png --min-coverage 0.3 --has-alpha --recursive
 ```
 
-
-
-```json
-[
-  {"find": "旧文本1", "replace": "新文本1"},
-  {"find": "旧文本2", "replace": "新文本2", "regex": true},
-  {"find": "旧文本3", "replace": "新文本3", "case_sensitive": true}
-]
-```
-
-> **已知限制**：仅适用于可解析文本型 PDF；表单域和批注中的文本不可搜索替换；替换区域下方的图像/线条可能被删除；正则匹配仅限单 span 内；替换文本过长可能导致字号缩放。
-
 ### rename — 文件批量重命名
 
 支持序号格式化、查找替换、正则匹配，内置预览模式。
