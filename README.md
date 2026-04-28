@@ -143,9 +143,6 @@ python main.py pdf-dewatermark --source ./doc.pdf --no-backup
 通过 MD5、尺寸、格式、覆盖率等多种条件匹配并删除 PDF 中的嵌入图片（如水印图片）。
 
 ```bash
-# 按水印图片文件匹配删除
-python main.py pdf-remove-image --source ./doc.pdf --image ./watermark.png
-
 # 按 MD5 匹配
 python main.py pdf-remove-image --source ./doc.pdf --md5 abc123def456
 
@@ -165,7 +162,7 @@ python main.py pdf-remove-image --source ./doc.pdf --min-size 50K --max-size 2M
 python main.py pdf-remove-image --source ./doc.pdf --has-alpha
 
 # 预览模式
-python main.py pdf-remove-image --source ./doc.pdf --image ./watermark.png --dry-run
+python main.py pdf-remove-image --source ./doc.pdf --dry-run
 
 # 多条件组合
 python main.py pdf-remove-image --source ./pdfs --format png --min-coverage 0.3 --has-alpha --recursive
