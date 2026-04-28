@@ -586,10 +586,10 @@ class PDFEngine:
 
     def _remove_image_refs_from_page(
         self, page, target_xrefs: set[int]
-    ) -> tuple[bool, int]:
+    ) -> tuple[bool, int, list[str]]:
         """
         从单个页面的内容流中移除对指定 xref 集合的图片引用。
-        返回 (是否修改了页面, 移除的实例数)
+        返回 (是否修改了页面, 移除的实例数, 被移除的名称列表)
         """
         # 建立 xref -> 图片名称 的映射（只关心目标 xref）
         xref_to_names: dict[int, list[str]] = {}
@@ -600,19 +600,20 @@ class PDFEngine:
                 xref_to_names.setdefault(xref, []).append(name)
 
         if not xref_to_names:
-            return False, 0
+            return False, 0, []
 
         names_to_remove = set()
         for names in xref_to_names.values():
             names_to_remove.update(names)
 
+        removed_names: list[str] = []
         removed_count = 0
         modified = False
 
         # 获取该页所有内容流
         content_xrefs = page.get_contents()
         if not content_xrefs:
-            return False, 0
+            return False, 0, []
 
         for content_xref in content_xrefs:
             try:
@@ -636,6 +637,7 @@ class PDFEngine:
                 if count > 0:
                     new_raw = replaced
                     removed_count += count
+                    removed_names.append(name)
                     continue
 
                 # 策略2：如果找不到完整的 q...Q 块，降级为仅移除 /Name Do
@@ -646,6 +648,7 @@ class PDFEngine:
                 if count2 > 0:
                     new_raw = replaced2
                     removed_count += count2
+                    removed_names.append(name)
 
             if new_raw != raw:
                 try:
@@ -654,7 +657,7 @@ class PDFEngine:
                 except Exception as e:
                     logger.warning(f"更新页面内容流 xref={content_xref} 失败: {e}")
 
-        return modified, removed_count
+        return modified, removed_count, removed_names
 
     @staticmethod
     def _image_matches(img: ImageInfo, criteria: ImageMatchCriteria) -> bool:
@@ -834,12 +837,21 @@ class PDFEngine:
 
                 for page_num in range(1, len(doc) + 1):
                     page = doc[page_num - 1]
-                    modified, removed = self._remove_image_refs_from_page(
+                    modified, removed, removed_names = self._remove_image_refs_from_page(
                         page, target_xrefs
                     )
                     if modified:
                         any_modified = True
                     instance_count += removed
+
+                    # 从页面资源字典中清理不再使用的 XObject 引用
+                    for name in removed_names:
+                        try:
+                            doc.xref_set_key(
+                                page.xref, f"Resources/XObject/{name}", "null"
+                            )
+                        except Exception:
+                            pass
 
                 if not any_modified:
                     return False, 0, matched, "匹配到图片，但未能从内容流中移除引用"

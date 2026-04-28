@@ -4,7 +4,6 @@ pdf-remove-image 子命令 — 按条件删除 PDF 嵌入图片
 from __future__ import annotations
 
 import argparse
-import hashlib
 from pathlib import Path
 
 from commands import BaseCommand
@@ -20,7 +19,6 @@ class PdfRemoveImageCommand(BaseCommand):
         # 匹配条件
         match_group = parser.add_argument_group("匹配条件（至少指定一项）")
         match_group.add_argument("--md5", action="append", help="目标图片 MD5 哈希值，可多次传入")
-        match_group.add_argument("--image", action="append", help="水印图片文件路径，自动计算 MD5，可多次传入")
         match_group.add_argument("--min-width", type=int, help="最小原始像素宽度")
         match_group.add_argument("--max-width", type=int, help="最大原始像素宽度")
         match_group.add_argument("--min-height", type=int, help="最小原始像素高度")
@@ -43,24 +41,8 @@ class PdfRemoveImageCommand(BaseCommand):
 
     def _build_criteria(self, args: argparse.Namespace) -> ImageMatchCriteria:
         md5s: list[str] = []
-        pixel_md5s: list[str] = []
         if args.md5:
             md5s.extend(m.lower() for m in args.md5)
-        if args.image:
-            for img_path_str in args.image:
-                img_path = Path(img_path_str)
-                if not img_path.exists():
-                    raise FileNotFoundError(f"图片文件不存在: {img_path}")
-                raw = img_path.read_bytes()
-                # 像素 MD5（不受重编码影响，统一 RGB 模式）
-                try:
-                    from PIL import Image
-                    import io
-                    pil_img = Image.open(io.BytesIO(raw))
-                    pil_img = pil_img.convert("RGB")
-                    pixel_md5s.append(hashlib.md5(pil_img.tobytes()).hexdigest().lower())
-                except Exception:
-                    pass
 
         formats: list[str] | None = None
         if args.format:
@@ -73,7 +55,6 @@ class PdfRemoveImageCommand(BaseCommand):
 
         return ImageMatchCriteria(
             md5s=md5s if md5s else None,
-            pixel_md5s=pixel_md5s if pixel_md5s else None,
             min_width=args.min_width,
             max_width=args.max_width,
             min_height=args.min_height,
@@ -89,7 +70,6 @@ class PdfRemoveImageCommand(BaseCommand):
     def _validate_criteria(self, criteria: ImageMatchCriteria, dry_run: bool = False) -> None:
         has_any = (
             criteria.md5s is not None
-            or criteria.pixel_md5s is not None
             or criteria.min_width is not None
             or criteria.max_width is not None
             or criteria.min_height is not None
@@ -102,7 +82,7 @@ class PdfRemoveImageCommand(BaseCommand):
             or criteria.has_alpha is not None
         )
         if not has_any and not dry_run:
-            raise ValueError("至少指定一项匹配条件（--md5、--image、尺寸、大小、格式、覆盖率、--has-alpha），或使用 --dry-run 查看所有图片")
+            raise ValueError("至少指定一项匹配条件（--md5、尺寸、大小、格式、覆盖率、--has-alpha），或使用 --dry-run 查看所有图片")
 
     def _print_images(self, images: list) -> None:
         if not images:
@@ -175,7 +155,6 @@ class PdfRemoveImageCommand(BaseCommand):
                     # dry-run 模式下如果没有指定条件，列出所有图片
                     has_criteria = (
                         criteria.md5s is not None
-                        or criteria.pixel_md5s is not None
                         or criteria.min_width is not None
                         or criteria.max_width is not None
                         or criteria.min_height is not None
