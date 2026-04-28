@@ -23,7 +23,6 @@ def build_parser() -> argparse.ArgumentParser:
   pdf-unsign       清除 PDF 数字签名
   pdf-dewatermark  去除 PDF 注释型水印
   pdf-remove-image 按条件删除 PDF 中的嵌入图片
-  pdf-replace      按规则查找并替换 PDF 文本内容
   rename           文件批量重命名
 
 使用 'python main.py <子命令> --help' 查看子命令详细用法
@@ -41,10 +40,6 @@ def build_parser() -> argparse.ArgumentParser:
   python main.py pdf-dewatermark --source ./pdfs --recursive
   python main.py pdf-remove-image --source ./doc.pdf --image ./watermark.png --dry-run
   python main.py pdf-remove-image --source ./pdfs --format png --min-coverage 0.5 --dry-run
-  python main.py pdf-replace --source ./doc.pdf --find "旧文本" --replace "新文本"
-  python main.py pdf-replace --source ./pdfs --find "版权" --replace "" --recursive
-  python main.py pdf-replace --source ./doc.pdf --find "\\d{4}" --replace "2025" --regex --dry-run
-  python main.py pdf-replace --source ./pdfs --rules ./rules.json --recursive
   python main.py rename ./pics/*.jpg --pattern "IMG_{seq:03d}" --dry-run
 """,
     )

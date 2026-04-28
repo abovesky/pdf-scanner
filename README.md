@@ -171,34 +171,7 @@ python main.py pdf-remove-image --source ./doc.pdf --image ./watermark.png --dry
 python main.py pdf-remove-image --source ./pdfs --format png --min-coverage 0.3 --has-alpha --recursive
 ```
 
-### pdf-replace — 按规则查找并替换 PDF 文本内容
 
-扫描 PDF 文件，按规则查找并替换文本内容。支持精确匹配、正则匹配和批量规则文件。
-
-```bash
-# 精确查找替换
-python main.py pdf-replace --source ./doc.pdf --find "旧文本" --replace "新文本"
-
-# 删除匹配文本（替换为空）
-python main.py pdf-replace --source ./pdfs --find "版权" --replace "" --recursive
-
-# 正则匹配
-python main.py pdf-replace --source ./doc.pdf --find "\d{4}" --replace "2025" --regex
-
-# 大小写敏感匹配
-python main.py pdf-replace --source ./doc.pdf --find "Copyright" --replace "" --case-sensitive
-
-# 预览模式（只显示匹配结果不实际替换）
-python main.py pdf-replace --source ./doc.pdf --find "旧文本" --replace "新文本" --dry-run
-
-# 批量规则替换（JSON 规则文件）
-python main.py pdf-replace --source ./pdfs --rules ./rules.json --recursive
-
-# 不创建备份文件
-python main.py pdf-replace --source ./doc.pdf --find "旧文本" --replace "新文本" --no-backup
-```
-
-**JSON 规则文件格式**（`--rules`）：
 
 ```json
 [
@@ -254,7 +227,6 @@ python main.py rename ./mixed/ --replace "old>new" --include-ext jpg,png
 │   ├── pdf_unsign.py       # 清除数字签名命令
 │   ├── pdf_dewatermark.py  # 去除注释型水印命令
 │   ├── pdf_remove_image.py # 按条件删除嵌入图片命令
-│   ├── pdf_replace.py      # 查找替换文本命令
 │   └── rename.py           # 文件批量重命名命令
 └── core/                   # 核心功能模块
     ├── __init__.py
