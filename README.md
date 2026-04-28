@@ -138,6 +138,27 @@ python main.py pdf-dewatermark --source ./pdfs --recursive
 python main.py pdf-dewatermark --source ./doc.pdf --no-backup
 ```
 
+### pdf-unsign — 清除 PDF 数字签名
+
+移除 PDF 文件的数字签名，保存为无签名的 PDF。
+
+```bash
+# 清除单文件签名
+python main.py pdf-unsign --source ./doc.pdf
+
+# 指定输出路径
+python main.py pdf-unsign --source ./doc.pdf --output ./unsigned.pdf
+
+# 批量处理目录
+python main.py pdf-unsign --source ./pdfs --recursive
+
+# 预览模式（只显示哪些文件含签名，不实际操作）
+python main.py pdf-unsign --source ./pdfs --dry-run
+
+# 不创建备份文件
+python main.py pdf-unsign --source ./doc.pdf --no-backup
+```
+
 ### pdf-remove-image — 按条件删除 PDF 嵌入图片
 
 通过 MD5、尺寸、格式、覆盖率等多种条件匹配并删除 PDF 中的嵌入图片（如水印图片）。
