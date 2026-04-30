@@ -320,40 +320,6 @@ class PDFEngine:
                 continue
         return field_xrefs, value_xrefs
 
-    def _clean_acroform_fields(self, doc, sig_field_xrefs: list[int]) -> None:
-        """从 AcroForm 的 /Fields 数组中移除签名字段引用"""
-        try:
-            catalog_xref = doc.pdf_catalog()
-            catalog_str = doc.xref_object(catalog_xref)
-            # 查找 AcroForm 引用
-            acroform_match = re.search(r"/AcroForm\s+(\d+)\s+(\d+)\s+R", catalog_str)
-            if not acroform_match:
-                return
-            acroform_xref = int(acroform_match.group(1))
-            acroform_str = doc.xref_object(acroform_xref)
-
-            # 查找 Fields 数组引用
-            fields_match = re.search(r"/Fields\s+(\d+)\s+(\d+)\s+R", acroform_str)
-            if not fields_match:
-                return
-            fields_xref = int(fields_match.group(1))
-
-            # 读取 Fields 数组内容
-            fields_str = doc.xref_object(fields_xref)
-            # 提取所有 xref 引用
-            refs = re.findall(r"(\d+)\s+(\d+)\s+R", fields_str)
-            remaining_refs = [
-                f"{xref_num} {gen_num} R"
-                for xref_num, gen_num in refs
-                if int(xref_num) not in sig_field_xrefs
-            ]
-
-            # 用 xref_set_object 替换整个 Fields 数组
-            new_array = f"[{' '.join(remaining_refs)}]"
-            doc.xref_set_object(fields_xref, new_array)
-        except Exception as e:
-            logger.warning(f"清理 AcroForm Fields 时出错: {e}")
-
     def has_signatures(self, pdf_path: Path) -> bool:
         """检查 PDF 是否包含数字签名"""
         import fitz
@@ -556,18 +522,6 @@ class PDFEngine:
             return int(float(size_str[:-1]) * 1024 * 1024)
         else:
             return int(size_str)
-
-    @staticmethod
-    def _generate_transparent_png() -> bytes:
-        """生成 1x1 透明 PNG 字节流"""
-        import io
-
-        from PIL import Image
-
-        img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        return buf.getvalue()
 
     def _remove_image_refs_from_page(
         self, page, target_xrefs: set[int]

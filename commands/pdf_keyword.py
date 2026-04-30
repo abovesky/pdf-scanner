@@ -16,8 +16,6 @@ from core.config import AppConfig
 from core.models import FileStatus, ScanResult
 from core.scanner import PDFScanner
 
-logger = logging.getLogger("pdf_scanner")
-
 STATUS_LABELS = {
     FileStatus.MODIFIED: "已修改",
     FileStatus.UNMODIFIED: "未修改",
