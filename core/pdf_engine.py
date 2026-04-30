@@ -114,27 +114,16 @@ class PDFEngine:
         pdf_path: Path,
         page_nums: list[int],
         output_path: Path | None = None,
-        backup: bool = True,
     ) -> bool:
         """
         删除指定页面
         page_nums: 1-based 页码列表
         output_path: 如果指定，输出到新路径；否则覆盖原文件
-        backup: 覆盖原文件时是否创建 .bak 备份
         """
         import fitz
         import tempfile
 
         save_path = output_path or pdf_path
-
-        # 备份原文件
-        if backup and save_path == pdf_path:
-            backup_path = pdf_path.with_suffix(".pdf.bak")
-            try:
-                shutil.copy2(str(pdf_path), str(backup_path))
-                logger.info(f"已创建备份: {backup_path.name}")
-            except Exception as e:
-                logger.warning(f"创建备份失败: {e}")
 
         try:
             with fitz.open(str(pdf_path)) as doc:
@@ -245,13 +234,11 @@ class PDFEngine:
         pdf_path: Path,
         password: str = "",
         output_path: Path | None = None,
-        backup: bool = True,
     ) -> tuple[bool, str]:
         """
         清除 PDF 密码保护
         password: 用户密码（空字符串适用于仅需所有者密码的文件）
         output_path: 输出路径，默认覆盖原文件
-        backup: 覆盖时是否创建 .bak 备份
         返回 (是否成功, 消息)
         """
         import fitz
@@ -273,15 +260,6 @@ class PDFEngine:
                     # 文件有 /Encrypt 但 PyMuPDF 已自动认证，
                     # 仍需调用 authenticate 确保 save 时移除加密
                     doc.authenticate(password)
-
-                # 备份原文件
-                if backup and save_path == pdf_path:
-                    backup_path = pdf_path.with_suffix(".pdf.bak")
-                    try:
-                        shutil.copy2(str(pdf_path), str(backup_path))
-                        logger.info(f"已创建备份: {backup_path.name}")
-                    except Exception as e:
-                        logger.warning(f"创建备份失败: {e}")
 
                 save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -331,13 +309,11 @@ class PDFEngine:
         self,
         pdf_path: Path,
         output_path: Path | None = None,
-        backup: bool = True,
     ) -> tuple[bool, str]:
         """
         清除 PDF 数字签名
         通过重建全新 PDF（仅复制页面内容）彻底丢弃原文件中的签名结构。
         output_path: 输出路径，默认覆盖原文件
-        backup: 覆盖时是否创建 .bak 备份
         返回 (是否成功, 消息)
         """
         import fitz
@@ -354,15 +330,6 @@ class PDFEngine:
                     return False, "文件无数字签名"
 
                 sig_count = len(sig_field_xrefs) or len(sig_value_xrefs)
-
-                # 备份原文件
-                if backup and save_path == pdf_path:
-                    backup_path = pdf_path.with_suffix(".pdf.bak")
-                    try:
-                        shutil.copy2(str(pdf_path), str(backup_path))
-                        logger.info(f"已创建备份: {backup_path.name}")
-                    except Exception as e:
-                        logger.warning(f"创建备份失败: {e}")
 
                 save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -453,7 +420,6 @@ class PDFEngine:
         self,
         pdf_path: Path,
         output_path: Path | None = None,
-        backup: bool = True,
     ) -> tuple[bool, int, list[int], str]:
         """
         删除注释型水印并保存
@@ -486,15 +452,6 @@ class PDFEngine:
 
                 if removed_count == 0:
                     return False, 0, [], "未发现水印注释"
-
-                # 备份原文件
-                if backup and save_path == pdf_path:
-                    backup_path = pdf_path.with_suffix(".pdf.bak")
-                    try:
-                        shutil.copy2(str(pdf_path), str(backup_path))
-                        logger.info(f"已创建备份: {backup_path.name}")
-                    except Exception as e:
-                        logger.warning(f"创建备份失败: {e}")
 
                 save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -751,7 +708,6 @@ class PDFEngine:
         pdf_path: Path,
         criteria: ImageMatchCriteria,
         output_path: Path | None = None,
-        backup: bool = True,
     ) -> tuple[bool, int, list[ImageInfo], str]:
         """
         按条件匹配并删除图片（从页面内容流中移除图片引用）
@@ -794,15 +750,6 @@ class PDFEngine:
 
                 if not any_modified:
                     return False, 0, matched, "匹配到图片，但未能从内容流中移除引用"
-
-                # 备份
-                if backup and save_path == pdf_path:
-                    backup_path = pdf_path.with_suffix(".pdf.bak")
-                    try:
-                        shutil.copy2(str(pdf_path), str(backup_path))
-                        logger.info(f"已创建备份: {backup_path.name}")
-                    except Exception as e:
-                        logger.warning(f"创建备份失败: {e}")
 
                 save_path.parent.mkdir(parents=True, exist_ok=True)
 

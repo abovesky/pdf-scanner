@@ -10,7 +10,7 @@
   "pages_to_check": "-1",
   "debug_mode": false,
   "recognition_mode": "baidu",
-  "ocr_accuracy": "accurate_basic",
+  "ocr_accuracy": "accurate",
   "ocr_lang": "chi_sim",
   "dpi": 300,
   "filter_spaces": true,

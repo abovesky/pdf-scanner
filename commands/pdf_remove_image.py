@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from commands import BaseCommand
+from commands import BaseCommand, resolve_output_path
 from core.pdf_engine import ImageMatchCriteria, PDFEngine
 
 
@@ -34,10 +34,11 @@ class PdfRemoveImageCommand(BaseCommand):
         path_group = parser.add_argument_group("路径配置")
         path_group.add_argument("--source", type=str, required=True, help="源路径（PDF 文件或目录）")
         path_group.add_argument("--recursive", action="store_true", help="递归扫描子目录")
+        path_group.add_argument("--output", type=str, help="输出路径（单文件可为文件或目录；批量处理时必须是目录）")
+        path_group.add_argument("--keep-dir-structure", action="store_true", help="保持源文件目录结构保存到输出目录")
 
         # 执行选项
         parser.add_argument("--dry-run", "-n", action="store_true", help="预览模式，只显示匹配到的图片信息不删除")
-        parser.add_argument("--no-backup", action="store_true", help="覆盖原文件时不创建 .bak 备份")
 
     def _build_criteria(self, args: argparse.Namespace) -> ImageMatchCriteria:
         md5s: list[str] = []
@@ -112,16 +113,27 @@ class PdfRemoveImageCommand(BaseCommand):
             print(f"  错误: 路径不存在: {source}")
             return
 
+        output = Path(args.output) if args.output else None
+        keep_dir_structure = args.keep_dir_structure
+
         # 收集文件
         if source.is_file():
             if source.suffix.lower() != ".pdf":
                 print(f"  错误: 不是 PDF 文件: {source}")
                 return
+            if output and output.is_dir():
+                output = resolve_output_path(source, output, source.parent, keep_dir_structure)
             files = [source]
-        elif args.recursive:
-            files = sorted(f for f in source.rglob("*.pdf") if f.is_file())
         else:
-            files = sorted(f for f in source.glob("*.pdf") if f.is_file())
+            if output and output.exists() and not output.is_dir():
+                print("  错误: 批量处理时 --output 必须是目录")
+                return
+            if output:
+                output.mkdir(parents=True, exist_ok=True)
+            if args.recursive:
+                files = sorted(f for f in source.rglob("*.pdf") if f.is_file())
+            else:
+                files = sorted(f for f in source.glob("*.pdf") if f.is_file())
 
         if not files:
             print("  没有找到 PDF 文件。")
@@ -180,10 +192,11 @@ class PdfRemoveImageCommand(BaseCommand):
                     print(f"  [{i}/{len(files)}] {pdf_path.name} | 无匹配图片")
                     continue
 
+                out_path = resolve_output_path(pdf_path, output, source, keep_dir_structure) if output else None
                 modified, instances, _, msg = engine.remove_images_by_criteria(
                     pdf_path,
                     criteria,
-                    backup=not args.no_backup,
+                    output_path=out_path,
                 )
                 if modified:
                     modified_count += 1

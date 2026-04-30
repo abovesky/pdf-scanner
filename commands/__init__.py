@@ -51,3 +51,48 @@ def discover_commands() -> None:
         if module_name.startswith("_"):
             continue
         importlib.import_module(f"commands.{module_name}")
+
+
+def resolve_output_path(
+    pdf_path: Path,
+    output: Path | None,
+    source: Path,
+    keep_dir_structure: bool = False,
+) -> Path | None:
+    """解析并返回 PDF 的最终输出路径。
+
+    - output 为 None: 返回 None（覆盖原文件）。
+    - output 是文件路径: 直接返回。
+    - output 是目录 + keep_dir_structure=False: 平铺保存，文件名冲突时自动加序号。
+    - output 是目录 + keep_dir_structure=True: 保持 source 下的相对目录结构保存。
+    """
+    if output is None:
+        return None
+
+    # 单文件模式：output 不是目录，直接作为目标文件
+    if not output.is_dir():
+        output.parent.mkdir(parents=True, exist_ok=True)
+        return output
+
+    # 目录模式
+    if keep_dir_structure and source.is_dir():
+        try:
+            rel = pdf_path.relative_to(source)
+        except ValueError:
+            rel = pdf_path.name
+        target = output / rel
+    else:
+        target = output / pdf_path.name
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    # 文件名冲突自动加序号
+    if target.exists():
+        stem = target.stem
+        suffix = target.suffix
+        counter = 1
+        while target.exists():
+            target = target.parent / f"{stem}_{counter}{suffix}"
+            counter += 1
+
+    return target

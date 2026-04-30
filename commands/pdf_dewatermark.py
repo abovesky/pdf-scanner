@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from commands import BaseCommand
+from commands import BaseCommand, resolve_output_path
 from core.pdf_engine import PDFEngine
 
 
@@ -19,12 +19,12 @@ class PdfDewatermarkCommand(BaseCommand):
         # 源路径
         dir_group = parser.add_argument_group("路径配置")
         dir_group.add_argument("--source", type=str, required=True, help="源路径（PDF 文件或目录）")
-        dir_group.add_argument("--output", type=str, help="输出路径（仅单文件时有效，默认覆盖原文件）")
+        dir_group.add_argument("--output", type=str, help="输出路径（单文件可为文件或目录；批量处理时必须是目录）")
         dir_group.add_argument("--recursive", action="store_true", help="递归扫描子目录")
+        parser.add_argument("--keep-dir-structure", action="store_true", help="保持源文件目录结构保存到输出目录")
 
         # 执行选项
         parser.add_argument("--dry-run", "-n", action="store_true", help="预览模式，只显示检测到的水印信息不删除")
-        parser.add_argument("--no-backup", action="store_true", help="覆盖原文件时不创建 .bak 备份")
 
     def execute(self, args: argparse.Namespace) -> None:
         source = Path(args.source)
@@ -33,6 +33,7 @@ class PdfDewatermarkCommand(BaseCommand):
             return
 
         output = Path(args.output) if args.output else None
+        keep_dir_structure = args.keep_dir_structure
 
         # 收集文件
         if source.is_file():
@@ -40,12 +41,14 @@ class PdfDewatermarkCommand(BaseCommand):
                 print(f"  错误: 不是 PDF 文件: {source}")
                 return
             if output and output.is_dir():
-                output = output / source.name
+                output = resolve_output_path(source, output, source.parent, keep_dir_structure)
             files = [source]
         else:
-            if output:
-                print("  错误: --output 仅在处理单个文件时有效")
+            if output and output.exists() and not output.is_dir():
+                print("  错误: 批量处理时 --output 必须是目录")
                 return
+            if output:
+                output.mkdir(parents=True, exist_ok=True)
             if args.recursive:
                 files = sorted(f for f in source.rglob("*.pdf") if f.is_file())
             else:
@@ -81,8 +84,9 @@ class PdfDewatermarkCommand(BaseCommand):
                 if args.dry_run:
                     print(f"  [{i}/{len(files)}] {pdf_path.name} | 发现 {len(watermarks)} 个水印 ({type_summary}) (预览)")
                 else:
+                    out_path = resolve_output_path(pdf_path, output, source, keep_dir_structure) if output else None
                     modified, removed, affected_pages, msg = engine.remove_annotation_watermarks(
-                        pdf_path, output_path=output, backup=not args.no_backup
+                        pdf_path, output_path=out_path
                     )
                     if modified:
                         modified_count += 1

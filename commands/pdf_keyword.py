@@ -12,7 +12,7 @@ import threading
 import unicodedata
 from pathlib import Path
 
-from commands import BaseCommand
+from commands import BaseCommand, resolve_output_path
 from core.config import AppConfig
 from core.models import FileStatus, ScanResult
 from core.scanner import PDFScanner
@@ -122,8 +122,8 @@ class PdfKeywordCommand(BaseCommand):
         conc_group.add_argument("--ocr-max-workers", type=int, help="OCR 并发数（默认 2）")
 
         # 杂项
-        parser.add_argument("--output", type=str, help="输出路径（仅单文件时有效，默认覆盖原文件）")
-        parser.add_argument("--no-backup", action="store_true", help="覆盖原文件时不创建 .bak 备份")
+        parser.add_argument("--output", type=str, help="输出路径（单文件可为文件或目录；批量处理时必须是目录）")
+        parser.add_argument("--keep-dir-structure", action="store_true", help="保持源文件目录结构保存到输出目录")
         parser.add_argument("--save-config", action="store_true", help="保存当前配置到 settings.json")
         parser.add_argument("--reset-progress", action="store_true", help="重置扫描进度（重新扫描所有文件）")
 
@@ -154,20 +154,23 @@ class PdfKeywordCommand(BaseCommand):
 
         # 处理 source 路径（支持单文件和目录）
         source_path = config.source_path or config.source_dir
-        output_path = Path(args.output) if args.output else None
+        output = Path(args.output) if args.output else None
+        keep_dir_structure = args.keep_dir_structure
 
         if source_path.is_file():
             if source_path.suffix.lower() != ".pdf":
                 print(f"  错误: 不是 PDF 文件: {source_path}")
                 return
-            if output_path and output_path.is_dir():
-                output_path = output_path / source_path.name
+            if output and output.is_dir():
+                output = resolve_output_path(source_path, output, source_path.parent, keep_dir_structure)
             config.source_dir = source_path.parent
             config.source_files = [source_path]
         elif source_path.is_dir():
-            if output_path:
-                print("  错误: --output 仅在处理单个文件时有效")
+            if output and output.exists() and not output.is_dir():
+                print("  错误: 批量处理时 --output 必须是目录")
                 return
+            if output:
+                output.mkdir(parents=True, exist_ok=True)
             config.source_dir = source_path
             config.source_files = None
         else:
@@ -212,7 +215,7 @@ class PdfKeywordCommand(BaseCommand):
         print(f"  PDF 关键词页面扫描工具")
         print(f"{'─' * 50}")
         print(f"  源路径:    {source_path}")
-        print(f"  输出路径:  {output_path or '覆盖原文件'}")
+        print(f"  输出路径:  {output or '覆盖原文件'}")
         print(f"  关键词:    {', '.join(config.keywords)}")
         print(f"  搜索逻辑:  {config.search_logic}")
         print(f"  检查页面:  {config.pages_to_check}")
@@ -220,7 +223,6 @@ class PdfKeywordCommand(BaseCommand):
         print(f"  操作模式:  {action}")
         print(f"  文件并发:  {config.max_workers}")
         print(f"  OCR 并发:  {config.ocr_max_workers}")
-        print(f"  备份:      {'否' if args.no_backup else '是'}")
         print(f"{'─' * 50}\n")
 
         # Ctrl+C 取消
@@ -233,7 +235,7 @@ class PdfKeywordCommand(BaseCommand):
         signal.signal(signal.SIGINT, _signal_handler)
 
         # 创建扫描器
-        scanner = PDFScanner(config=config, cancel_event=cancel_event, backup=not args.no_backup)
+        scanner = PDFScanner(config=config, cancel_event=cancel_event)
         scanner.log_callback = self._log_handler
         scanner.result_callback = self._result_handler
 
@@ -248,34 +250,15 @@ class PdfKeywordCommand(BaseCommand):
             return
 
         print(f"  开始扫描 {self._total} 个文件...\n")
-        results = scanner.run(output_path=output_path)
+
+        if source_path.is_dir() and output:
+            def output_resolver(fp: Path) -> Path | None:
+                return resolve_output_path(fp, output, source_path, keep_dir_structure)
+            results = scanner.run(output_resolver=output_resolver)
+        else:
+            results = scanner.run(output_path=output)
+
         print_results(results)
-
-        # 批量目录模式：将已修改文件移动到"已修改"目录
-        if source_path.is_dir() and not config.dry_run:
-            modified_dir = source_path / "已修改"
-            modified_dir.mkdir(exist_ok=True)
-
-            moved_count = 0
-            for r in results:
-                if r.status == FileStatus.MODIFIED and r.file_path.exists():
-                    dest = modified_dir / r.file_path.name
-                    # 处理文件名冲突
-                    counter = 1
-                    stem = dest.stem
-                    suffix = dest.suffix
-                    while dest.exists():
-                        dest = modified_dir / f"{stem}_{counter}{suffix}"
-                        counter += 1
-
-                    try:
-                        shutil.move(str(r.file_path), str(dest))
-                        moved_count += 1
-                    except Exception as e:
-                        self._log_handler("warning", f"移动文件失败 {r.file_path.name}: {e}")
-
-            if moved_count > 0:
-                print(f"\n  已将 {moved_count} 个已修改文件移动到: {modified_dir}")
 
     @staticmethod
     def _apply_cli_args(config: AppConfig, args: argparse.Namespace) -> AppConfig:

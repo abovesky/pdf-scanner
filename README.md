@@ -33,6 +33,17 @@ python main.py --help                # 查看所有子命令
 python main.py <子命令> --help       # 查看子命令详细用法
 ```
 
+### 输出路径说明
+
+所有 PDF 处理命令均支持 `--output` 和 `--keep-dir-structure` 参数，规则如下：
+
+| 场景 | 行为 |
+|:---|:---|
+| 不指定 `--output` | **覆盖原文件** |
+| `--output` 为文件路径（仅单文件模式） | 保存到指定文件 |
+| `--output` 为目录 | 批量平铺保存到该目录，文件名冲突时自动加 `_1`、`_2` 序号 |
+| `--output` 为目录 + `--keep-dir-structure` | 保持源文件的相对目录结构保存到输出目录 |
+
 ### pdf-keyword — 删除 PDF 中包含指定关键词的页面
 
 通过 OCR 识别 PDF 页面文本，自动删除包含指定关键词的页面。
@@ -50,14 +61,13 @@ python main.py pdf-keyword --source ./doc.pdf --keywords "版权"
 # 仅检测不删除
 python main.py pdf-keyword --source ./pdfs --keywords "版权" --dry-run
 
-# 指定输出路径（仅单文件时有效）
+# 指定输出路径
 python main.py pdf-keyword --source ./doc.pdf --keywords "版权" --output ./cleaned.pdf
+python main.py pdf-keyword --source ./pdfs --keywords "版权" --output ./output
+python main.py pdf-keyword --source ./pdfs --keywords "版权" --output ./output --keep-dir-structure
 
 # 使用火山引擎 OCR
 python main.py pdf-keyword --source ./pdfs --ocr-mode volc
-
-# 不创建备份文件
-python main.py pdf-keyword --source ./doc.pdf --keywords "版权" --no-backup
 
 # 保存当前参数到配置文件
 python main.py pdf-keyword --source ./pdfs --save-config
@@ -89,8 +99,10 @@ python main.py pdf-blank --source ./pdfs
 # 处理单个文件
 python main.py pdf-blank --source ./doc.pdf
 
-# 指定输出路径（仅单文件时有效）
+# 指定输出路径
 python main.py pdf-blank --source ./doc.pdf --output ./cleaned.pdf
+python main.py pdf-blank --source ./pdfs --output ./output
+python main.py pdf-blank --source ./pdfs --output ./output --keep-dir-structure
 
 # 预览模式（不实际删除）
 python main.py pdf-blank --source ./pdfs --dry-run
@@ -100,9 +112,6 @@ python main.py pdf-blank --source ./pdfs --min-text-length 20
 
 # 递归扫描子目录
 python main.py pdf-blank --source ./pdfs --recursive
-
-# 不创建备份文件
-python main.py pdf-blank --source ./doc.pdf --no-backup
 ```
 
 ### pdf-decrypt — 清除 PDF 密码保护
@@ -116,8 +125,10 @@ python main.py pdf-decrypt --source ./doc.pdf
 # 指定密码
 python main.py pdf-decrypt --source ./doc.pdf --password 123456
 
-# 指定输出路径（仅单文件时有效）
+# 指定输出路径
 python main.py pdf-decrypt --source ./doc.pdf --output ./unlocked.pdf
+python main.py pdf-decrypt --source ./pdfs --output ./output
+python main.py pdf-decrypt --source ./pdfs --output ./output --keep-dir-structure
 
 # 批量处理目录下所有加密 PDF
 python main.py pdf-decrypt --source ./pdfs
@@ -127,9 +138,6 @@ python main.py pdf-decrypt --source ./pdfs --recursive
 
 # 预览模式（只显示哪些文件加密，不实际操作）
 python main.py pdf-decrypt --source ./pdfs --dry-run
-
-# 不创建备份文件
-python main.py pdf-decrypt --source ./doc.pdf --no-backup
 ```
 
 ### pdf-dewatermark — 去除 PDF 注释型水印
@@ -140,17 +148,16 @@ python main.py pdf-decrypt --source ./doc.pdf --no-backup
 # 去除水印
 python main.py pdf-dewatermark --source ./doc.pdf
 
-# 指定输出路径（仅单文件时有效）
+# 指定输出路径
 python main.py pdf-dewatermark --source ./doc.pdf --output ./cleaned.pdf
+python main.py pdf-dewatermark --source ./pdfs --output ./output
+python main.py pdf-dewatermark --source ./pdfs --output ./output --keep-dir-structure
 
 # 预览模式（只显示检测到的水印，不实际删除）
 python main.py pdf-dewatermark --source ./doc.pdf --dry-run
 
 # 批量处理目录
 python main.py pdf-dewatermark --source ./pdfs --recursive
-
-# 不创建备份文件
-python main.py pdf-dewatermark --source ./doc.pdf --no-backup
 ```
 
 ### pdf-unsign — 清除 PDF 数字签名
@@ -163,15 +170,14 @@ python main.py pdf-unsign --source ./doc.pdf
 
 # 指定输出路径
 python main.py pdf-unsign --source ./doc.pdf --output ./unsigned.pdf
+python main.py pdf-unsign --source ./pdfs --output ./output
+python main.py pdf-unsign --source ./pdfs --output ./output --keep-dir-structure
 
 # 批量处理目录
 python main.py pdf-unsign --source ./pdfs --recursive
 
 # 预览模式（只显示哪些文件含签名，不实际操作）
 python main.py pdf-unsign --source ./pdfs --dry-run
-
-# 不创建备份文件
-python main.py pdf-unsign --source ./doc.pdf --no-backup
 ```
 
 ### pdf-remove-image — 按条件删除 PDF 嵌入图片
@@ -199,6 +205,11 @@ python main.py pdf-remove-image --source ./doc.pdf --has-alpha
 
 # 预览模式
 python main.py pdf-remove-image --source ./doc.pdf --dry-run
+
+# 指定输出路径
+python main.py pdf-remove-image --source ./doc.pdf --md5 abc123def456 --output ./cleaned.pdf
+python main.py pdf-remove-image --source ./pdfs --format png --output ./output --recursive
+python main.py pdf-remove-image --source ./pdfs --format png --output ./output --keep-dir-structure --recursive
 
 # 多条件组合
 python main.py pdf-remove-image --source ./pdfs --format png --min-coverage 0.3 --has-alpha --recursive
