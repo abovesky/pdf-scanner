@@ -11,8 +11,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Callable
-
 from .config import AppConfig
 from .models import FileStatus, ScanProgress, ScanResult
 from .ocr_engines import OCREngineFactory, OCRConfig
@@ -37,10 +35,6 @@ class PDFScanner:
         self.ocr_engine = ocr_engine
         self.cancel_event = cancel_event
         self.backup = backup
-
-        # 回调函数（供 GUI 调用）
-        self.log_callback: Callable[[str, str], None] | None = None
-        self.result_callback: Callable[[ScanResult], None] | None = None
 
         # 内部状态
         self.keywords = config.keywords if config.case_sensitive else [kw.lower() for kw in config.keywords]
@@ -70,12 +64,6 @@ class PDFScanner:
     def _log(self, level: str, msg: str) -> None:
         """统一日志输出"""
         getattr(logger, level, logger.info)(msg)
-        if self.log_callback:
-            self.log_callback(level, msg)
-
-    def _emit_result(self, result: ScanResult) -> None:
-        if self.result_callback:
-            self.result_callback(result)
 
     def _check_cancel(self) -> bool:
         """检查取消信号，返回 True 表示已取消"""
@@ -322,13 +310,12 @@ class PDFScanner:
                 message=f"删除匹配页 {matched_pages}" if file_modified else "未删除",
                 elapsed_seconds=round(time.time() - start_time, 2),
             )
-            self._emit_result(result)
             return result
 
         else:
             self._log("info", f"  -> 未找到匹配页面")
             self._mark_processed(pdf_path, file_modified)
-            result = ScanResult(
+            return ScanResult(
                 file_name=pdf_path.name,
                 file_path=pdf_path,
                 status=FileStatus.UNMODIFIED,
@@ -336,8 +323,6 @@ class PDFScanner:
                 message="无匹配页",
                 elapsed_seconds=round(time.time() - start_time, 2),
             )
-            self._emit_result(result)
-            return result
 
     def run(self, output_path: Path | None = None) -> list[ScanResult]:
         """运行完整扫描流程"""

@@ -455,23 +455,8 @@ class PDFEngine:
             logger.error(f"清除签名失败: {e}")
             return False, str(e)
 
-    def remove_blank_pages(
-        self,
-        pdf_path: Path,
-        output_path: Path | None = None,
-        min_text_length: int = 10,
-        backup: bool = True,
-    ) -> tuple[bool, list[int]]:
-        """
-        删除所有空白页
-        返回 (是否成功, 删除的页码列表)
-        """
-        blank_pages = self.find_blank_pages(pdf_path, min_text_length)
-        if not blank_pages:
-            return False, []
 
-        success = self.delete_pages(pdf_path, blank_pages, output_path, backup=backup)
-        return success, blank_pages
+
 
     def analyze_annotation_watermarks(self, pdf_path: Path) -> list[dict]:
         """
