@@ -30,11 +30,13 @@ class PDFScanner:
         pdf_engine: PDFEngine | None = None,
         ocr_engine: OCREngine | None = None,
         cancel_event: threading.Event | None = None,
+        backup: bool = True,
     ):
         self.config = config
         self.pdf_engine = pdf_engine or PDFEngine()
         self.ocr_engine = ocr_engine
         self.cancel_event = cancel_event
+        self.backup = backup
 
         # 回调函数（供 GUI 调用）
         self.log_callback: Callable[[str, str], None] | None = None
@@ -210,7 +212,7 @@ class PDFScanner:
         matched = self.check_keywords(text, f"第{page_num}页")
         return page_num, matched
 
-    def process_pdf(self, pdf_path: Path) -> ScanResult:
+    def process_pdf(self, pdf_path: Path, output_path: Path | None = None) -> ScanResult:
         """处理单个 PDF 文件"""
         start_time = time.time()
         self._log("info", f"\n[{pdf_path.name}] 开始处理...")
@@ -303,7 +305,7 @@ class PDFScanner:
 
             # 删除匹配页
             if not self.config.dry_run:
-                success = self.pdf_engine.delete_pages(pdf_path, matched_pages)
+                success = self.pdf_engine.delete_pages(pdf_path, matched_pages, output_path=output_path, backup=self.backup)
                 if success:
                     file_modified = True
                     self._log("info", f"  已删除匹配页: {matched_pages}")
@@ -337,7 +339,7 @@ class PDFScanner:
             self._emit_result(result)
             return result
 
-    def run(self) -> list[ScanResult]:
+    def run(self, output_path: Path | None = None) -> list[ScanResult]:
         """运行完整扫描流程"""
         files = self.get_pdf_files()
         total = len(files)
@@ -347,11 +349,14 @@ class PDFScanner:
             self._log("info", "没有发现新的未处理PDF文件。")
             return results
 
+        if output_path is not None and len(files) > 1:
+            raise ValueError("--output 不支持批量处理多个文件")
+
         self._log("info", f"\n本次共发现 {total} 个新文件，准备开始工作...")
 
         try:
             with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-                futures = {executor.submit(self.process_pdf, fp): fp for fp in files}
+                futures = {executor.submit(self.process_pdf, fp, output_path): fp for fp in files}
                 completed = 0
 
                 for future in as_completed(futures):

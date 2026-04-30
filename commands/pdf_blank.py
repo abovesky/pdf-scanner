@@ -20,6 +20,7 @@ class PdfBlankCommand(BaseCommand):
         # 源路径
         dir_group = parser.add_argument_group("路径配置")
         dir_group.add_argument("--source", type=str, required=True, help="源路径（PDF 文件或目录）")
+        dir_group.add_argument("--output", type=str, help="输出路径（仅单文件时有效，默认覆盖原文件）")
 
         # 扫描参数
         scan_group = parser.add_argument_group("扫描参数")
@@ -39,16 +40,24 @@ class PdfBlankCommand(BaseCommand):
             print(f"  错误: 路径不存在: {source}")
             return
 
+        output = Path(args.output) if args.output else None
+
         # 收集文件
         if source.is_file():
             if source.suffix.lower() != ".pdf":
                 print(f"  错误: 不是 PDF 文件: {source}")
                 return
+            if output and output.is_dir():
+                output = output / source.name
             files = [source]
-        elif args.recursive:
-            files = sorted(f for f in source.rglob("*.pdf") if f.is_file())
         else:
-            files = sorted(f for f in source.glob("*.pdf") if f.is_file())
+            if output:
+                print("  错误: --output 仅在处理单个文件时有效")
+                return
+            if args.recursive:
+                files = sorted(f for f in source.rglob("*.pdf") if f.is_file())
+            else:
+                files = sorted(f for f in source.glob("*.pdf") if f.is_file())
 
         if not files:
             print("  没有找到 PDF 文件。")
@@ -71,7 +80,7 @@ class PdfBlankCommand(BaseCommand):
                         print(f"  [{i}/{len(files)}] {pdf_path.name} | 空白页: {blank_pages} (预览)")
                     else:
                         # 删除空白页
-                        success = engine.delete_pages(pdf_path, blank_pages, backup=not args.no_backup)
+                        success = engine.delete_pages(pdf_path, blank_pages, output_path=output, backup=not args.no_backup)
                         if success:
                             print(f"  [{i}/{len(files)}] {pdf_path.name} | 空白页: {blank_pages} -> 已删除")
                         else:

@@ -50,8 +50,14 @@ python main.py pdf-keyword --source ./doc.pdf --keywords "版权"
 # 仅检测不删除
 python main.py pdf-keyword --source ./pdfs --keywords "版权" --dry-run
 
+# 指定输出路径（仅单文件时有效）
+python main.py pdf-keyword --source ./doc.pdf --keywords "版权" --output ./cleaned.pdf
+
 # 使用火山引擎 OCR
 python main.py pdf-keyword --source ./pdfs --ocr-mode volc
+
+# 不创建备份文件
+python main.py pdf-keyword --source ./doc.pdf --keywords "版权" --no-backup
 
 # 保存当前参数到配置文件
 python main.py pdf-keyword --source ./pdfs --save-config
@@ -83,6 +89,9 @@ python main.py pdf-blank --source ./pdfs
 # 处理单个文件
 python main.py pdf-blank --source ./doc.pdf
 
+# 指定输出路径（仅单文件时有效）
+python main.py pdf-blank --source ./doc.pdf --output ./cleaned.pdf
+
 # 预览模式（不实际删除）
 python main.py pdf-blank --source ./pdfs --dry-run
 
@@ -91,6 +100,9 @@ python main.py pdf-blank --source ./pdfs --min-text-length 20
 
 # 递归扫描子目录
 python main.py pdf-blank --source ./pdfs --recursive
+
+# 不创建备份文件
+python main.py pdf-blank --source ./doc.pdf --no-backup
 ```
 
 ### pdf-decrypt — 清除 PDF 密码保护
@@ -127,6 +139,9 @@ python main.py pdf-decrypt --source ./doc.pdf --no-backup
 ```bash
 # 去除水印
 python main.py pdf-dewatermark --source ./doc.pdf
+
+# 指定输出路径（仅单文件时有效）
+python main.py pdf-dewatermark --source ./doc.pdf --output ./cleaned.pdf
 
 # 预览模式（只显示检测到的水印，不实际删除）
 python main.py pdf-dewatermark --source ./doc.pdf --dry-run
