@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import shutil
 import signal
 import threading
 import unicodedata
@@ -249,6 +250,32 @@ class PdfKeywordCommand(BaseCommand):
         print(f"  开始扫描 {self._total} 个文件...\n")
         results = scanner.run(output_path=output_path)
         print_results(results)
+
+        # 批量目录模式：将已修改文件移动到"已修改"目录
+        if source_path.is_dir() and not config.dry_run:
+            modified_dir = source_path / "已修改"
+            modified_dir.mkdir(exist_ok=True)
+
+            moved_count = 0
+            for r in results:
+                if r.status == FileStatus.MODIFIED and r.file_path.exists():
+                    dest = modified_dir / r.file_path.name
+                    # 处理文件名冲突
+                    counter = 1
+                    stem = dest.stem
+                    suffix = dest.suffix
+                    while dest.exists():
+                        dest = modified_dir / f"{stem}_{counter}{suffix}"
+                        counter += 1
+
+                    try:
+                        shutil.move(str(r.file_path), str(dest))
+                        moved_count += 1
+                    except Exception as e:
+                        self._log_handler("warning", f"移动文件失败 {r.file_path.name}: {e}")
+
+            if moved_count > 0:
+                print(f"\n  已将 {moved_count} 个已修改文件移动到: {modified_dir}")
 
     @staticmethod
     def _apply_cli_args(config: AppConfig, args: argparse.Namespace) -> AppConfig:

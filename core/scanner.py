@@ -35,6 +35,7 @@ class PDFScanner:
         self.ocr_engine = ocr_engine
         self.cancel_event = cancel_event
         self.backup = backup
+        self.result_callback = None
 
         # 内部状态
         self.keywords = config.keywords if config.case_sensitive else [kw.lower() for kw in config.keywords]
@@ -357,14 +358,17 @@ class PDFScanner:
                     except Exception as e:
                         fp = futures[future]
                         self._log("error", f"处理 {fp.name} 时异常: {e}")
-                        results.append(ScanResult(
+                        result = ScanResult(
                             file_name=fp.name,
                             file_path=fp,
                             status=FileStatus.FAILED,
                             message=str(e),
-                        ))
+                        )
+                        results.append(result)
 
                     completed += 1
+                    if self.result_callback:
+                        self.result_callback(result)
         finally:
             self._save_progress()
 
