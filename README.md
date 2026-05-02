@@ -1,6 +1,6 @@
 # 多用途 CLI 工具包
 
-一个基于子命令架构的命令行工具集，当前包含 PDF 页面处理和文件批量重命名功能。
+一个基于子命令架构的命令行工具集，支持 PDF 页面处理（关键词删除、空白页删除、去水印、去签名、解密、图片删除）和文件批量重命名。
 
 ## 安装
 
@@ -23,6 +23,18 @@ pip install volcengine-python-sdk
 # 科大讯飞 OCR（需要 requests）
 pip install requests
 ```
+
+## 功能概览
+
+| 命令 | 功能 | 需要 OCR |
+|:---|:---|:---:|
+| `pdf-keyword` | 删除包含指定关键词的页面 | 是 |
+| `pdf-blank` | 删除空白页 | 否 |
+| `pdf-decrypt` | 清除密码保护 | 否 |
+| `pdf-dewatermark` | 去除注释型水印 | 否 |
+| `pdf-unsign` | 清除数字签名 | 否 |
+| `pdf-remove-image` | 按条件删除嵌入图片 | 否 |
+| `rename` | 文件批量重命名 | — |
 
 ## 用法
 
@@ -107,7 +119,7 @@ python main.py pdf-blank --source ./pdfs --output ./output --keep-dir-structure
 # 预览模式（不实际删除）
 python main.py pdf-blank --source ./pdfs --dry-run
 
-# 调整空白页判定阈值（默认 10，值越大判定越严格）
+# 调整空白页判定阈值（默认 30，值越大判定越严格）
 python main.py pdf-blank --source ./pdfs --min-text-length 20
 
 # 递归扫描子目录
